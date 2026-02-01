@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Neubrutalism color palette */
+    --color-bg: #fafafa;
+    --color-text: #000000;
+    --color-primary: #88aaee;
+    --color-secondary: #ffd93d;
+    --color-accent: #ff6b9d;
+    --color-success: #6bcf7f;
+    --color-border: #000000;
+  }
+
+  body {
+    @apply bg-[--color-bg] text-[--color-text] font-mono;
+  }
+}
+
+@layer utilities {
+  .neubrutalism-shadow {
+    box-shadow: 4px 4px 0px 0px var(--color-border);
+  }
+
+  .neubrutalism-shadow-lg {
+    box-shadow: 6px 6px 0px 0px var(--color-border);
+  }
+
+  .neubrutalism-shadow-xl {
+    box-shadow: 8px 8px 0px 0px var(--color-border);
+  }
+
+  .writing-mode-vertical {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+  }
+}
+
+/* Markdown Preview Styles */
+@layer components {
+  .markdown-preview {
+    @apply text-sm leading-relaxed;
+  }
+
+  .markdown-preview p {
+    @apply mb-4;
+  }
+
+  .markdown-preview .md-h1 {
+    @apply text-2xl font-black uppercase mb-4 mt-6 border-b-4 border-black pb-2;
+  }
+
+  .markdown-preview .md-h2 {
+    @apply text-xl font-bold uppercase mb-3 mt-5;
+  }
+
+  .markdown-preview .md-h3 {
+    @apply text-lg font-bold mb-2 mt-4;
+  }
+
+  .markdown-preview .code-block {
+    @apply bg-gray-900 text-green-400 p-4 my-4 border-4 border-black overflow-x-auto font-mono text-sm;
+  }
+
+  .markdown-preview .inline-code {
+    @apply bg-gray-100 px-1.5 py-0.5 border-2 border-black font-mono text-sm;
+  }
+
+  .markdown-preview .md-ul {
+    @apply list-disc list-inside my-4 space-y-1;
+  }
+
+  .markdown-preview .md-ol {
+    @apply list-decimal list-inside my-4 space-y-1;
+  }
+
+  .markdown-preview .md-li {
+    @apply font-medium;
+  }
+
+  .markdown-preview .md-quote {
+    @apply border-l-4 border-black bg-gray-100 pl-4 py-2 my-4 italic;
+  }
+
+  .markdown-preview .md-link {
+    @apply text-blue-600 underline font-bold hover:text-blue-800;
+  }
+
+  .markdown-preview .md-hr {
+    @apply border-t-4 border-black my-6;
+  }
+
+  .markdown-preview strong {
+    @apply font-bold;
+  }
+
+  .markdown-preview em {
+    @apply italic;
+  }
+}
