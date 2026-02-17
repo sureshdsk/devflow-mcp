@@ -8,7 +8,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const db = getDb();
+    const db = await getDb();
 
     const file = await db
       .select()
@@ -41,7 +41,7 @@ export async function PATCH(
     const body = await request.json();
     const { name, content } = body;
 
-    const db = getDb();
+    const db = await getDb();
 
     const updateData: Record<string, unknown> = {
       updatedAt: new Date(),
@@ -79,7 +79,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const db = getDb();
+    const db = await getDb();
 
     await db.delete(schema.files).where(eq(schema.files.id, id));
 

@@ -5,8 +5,8 @@ import { homedir } from "os";
 export default {
   schema: "./src/db/schema.ts",
   out: "./drizzle",
-  dialect: "sqlite",
+  dialect: "turso",
   dbCredentials: {
-    url: join(homedir(), ".devflow", "devflow.db"),
+    url: `file:${join(homedir(), ".devflow", "devflow.db")}`,
   },
 } satisfies Config;

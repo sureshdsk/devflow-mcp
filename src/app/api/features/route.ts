@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId");
 
-    const db = getDb();
+    const db = await getDb();
 
     let features;
     if (projectId) {
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const db = getDb();
+    const db = await getDb();
 
     const newFeature = {
       id: randomUUID(),

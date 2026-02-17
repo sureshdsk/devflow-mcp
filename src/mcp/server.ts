@@ -5,7 +5,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { getDb, schema } from "../db/index-bun.js";
+import { getDb, schema } from "../db/index.js";
 import { eq, desc, and, isNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { broadcastUpdate } from "./websocket.js";
@@ -390,7 +390,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 // Tool execution handler
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const db = getDb();
+  const db = await getDb();
 
   try {
     switch (request.params.name) {

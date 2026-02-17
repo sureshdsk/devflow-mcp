@@ -5,7 +5,7 @@ import { randomUUID } from "crypto";
 
 export async function GET() {
   try {
-    const db = getDb();
+    const db = await getDb();
     const tasks = await db.select().from(schema.tasks).orderBy(schema.tasks.order);
     return NextResponse.json(tasks);
   } catch (error) {
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { title, description, priority, context, status, projectId, featureId } = body;
 
-    const db = getDb();
+    const db = await getDb();
 
     // Get project ID (use provided or get default)
     let targetProjectId = projectId;
