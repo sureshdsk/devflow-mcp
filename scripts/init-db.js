@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-const Database = require('better-sqlite3');
-const { drizzle } = require('drizzle-orm/better-sqlite3');
-const { migrate } = require('drizzle-orm/better-sqlite3/migrator');
+const { createClient } = require('@libsql/client');
+const { drizzle } = require('drizzle-orm/libsql');
+const { migrate } = require('drizzle-orm/libsql/migrator');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -13,7 +13,7 @@ const DB_PATH = path.join(DB_DIR, 'devflow.db');
 
 async function initDatabase() {
   console.log('Initializing DevFlow database...');
-  
+
   // Ensure directory exists
   try {
     await fs.promises.mkdir(DB_DIR, { recursive: true });
@@ -23,10 +23,14 @@ async function initDatabase() {
   }
 
   // Create database connection
-  const sqlite = new Database(DB_PATH);
-  sqlite.pragma('journal_mode = WAL');
-  
-  const db = drizzle(sqlite);
+  const client = createClient({
+    url: `file:${DB_PATH}`,
+  });
+
+  await client.execute('PRAGMA journal_mode = WAL');
+  await client.execute('PRAGMA foreign_keys = ON');
+
+  const db = drizzle(client);
 
   // Run migrations
   console.log('Running migrations...');
@@ -34,14 +38,15 @@ async function initDatabase() {
   console.log('✓ Migrations complete');
 
   // Create default project if none exists
-  const existingProjects = sqlite.prepare('SELECT id FROM projects LIMIT 1').all();
-  if (existingProjects.length === 0) {
+  const existingProjects = await client.execute('SELECT id FROM projects LIMIT 1');
+  if (existingProjects.rows.length === 0) {
     const id = randomUUID();
     const now = Math.floor(Date.now() / 1000);
-    sqlite.prepare(`
-      INSERT INTO projects (id, name, description, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(id, 'Default Project', 'Default project for tasks', 'active', now, now);
+    await client.execute({
+      sql: `INSERT INTO projects (id, name, description, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [id, 'Default Project', 'Default project for tasks', 'active', now, now],
+    });
     console.log('✓ Created default project');
   }
 
@@ -49,8 +54,8 @@ async function initDatabase() {
   console.log('\nYou can now:');
   console.log('  1. Start the web UI: devflow dev');
   console.log('  2. Start the MCP server: devflow mcp');
-  
-  sqlite.close();
+
+  client.close();
 }
 
 initDatabase().catch((error) => {

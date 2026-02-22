@@ -27,6 +27,8 @@ const COLUMNS: { id: TaskStatus; title: string; color: string }[] = [
   { id: "done", title: "Done", color: "bg-[--color-success]" },
 ];
 
+const COLUMN_IDS: Set<string> = new Set(COLUMNS.map((c) => c.id));
+
 const STORAGE_KEY = "devflow-selected-project";
 
 export function KanbanBoard() {
@@ -278,7 +280,18 @@ export function KanbanBoard() {
     if (!over) return;
 
     const taskId = active.id as string;
-    const newStatus = over.id as TaskStatus;
+    const overId = over.id as string;
+
+    // over.id can be a column ID or a task ID (when dropped over another card)
+    let newStatus: TaskStatus;
+    if (COLUMN_IDS.has(overId)) {
+      newStatus = overId as TaskStatus;
+    } else {
+      // Dropped over a task card — use that task's status as the target column
+      const overTask = tasks.find((t) => t.id === overId);
+      if (!overTask) return;
+      newStatus = overTask.status as TaskStatus;
+    }
 
     const task = tasks.find((t) => t.id === taskId);
     if (task && task.status !== newStatus) {

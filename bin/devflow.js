@@ -19,10 +19,8 @@ const command = process.argv[2];
 switch (command) {
   case 'init':
     console.log('Initializing DevFlow database...');
-    const initScript = path.join(__dirname, '..', 'scripts', hasBun() ? 'init-db.ts' : 'init-db.js');
-    const initCmd = hasBun() ? 'bun' : 'node';
-    const initArgs = hasBun() ? ['run', initScript] : [initScript];
-    const initProcess = spawn(initCmd, initArgs, { stdio: 'inherit' });
+    const initScript = path.join(__dirname, '..', 'scripts', 'init-db.js');
+    const initProcess = spawn('node', [initScript], { stdio: 'inherit' });
     initProcess.on('exit', (code) => process.exit(code));
     break;
 

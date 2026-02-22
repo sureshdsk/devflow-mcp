@@ -100,6 +100,38 @@ bun dev  # Web UI
 bun run mcp  # MCP server
 ```
 
+### MCP Server for Local Development
+
+If you have DevFlow installed globally (`npm install -g @sureshdsk/devflow-mcp`), the `devflow mcp` command runs the code from the **global `node_modules`**, not your local clone. Local changes won't take effect until you reinstall globally.
+
+To use your local source code instead, configure your AI coding tool's MCP settings to point directly at your local server file. The MCP server config is the same regardless of which tool you use:
+
+```json
+{
+  "mcpServers": {
+    "devflow": {
+      "command": "bun",
+      "args": ["run", "/path/to/devflow-mcp/src/mcp/server.ts"]
+    }
+  }
+}
+```
+
+We recommend registering this at the **global scope** rather than per-project, since DevFlow is a project management tool that works across multiple codebases.
+
+Add this config to your tool's MCP settings file. Refer to your tool's documentation for where MCP servers are configured. For example, with Claude Code:
+
+```bash
+# Via CLI (recommended)
+claude mcp add --scope user devflow -- bun run /path/to/devflow-mcp/src/mcp/server.ts
+
+# Or manually add the config above to:
+#   ~/.claude.json        (global scope)
+#   .mcp.json             (project-local scope)
+```
+
+After changing MCP config, restart your coding tool's session for changes to take effect.
+
 ### Project Structure
 
 ```

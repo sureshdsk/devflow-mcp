@@ -8,7 +8,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const db = getDb();
+    const db = await getDb();
 
     // Check if project exists
     const project = await db
@@ -69,7 +69,7 @@ export async function PATCH(
     if (body.status !== undefined) updateData.status = body.status;
     updateData.updatedAt = new Date();
 
-    const db = getDb();
+    const db = await getDb();
     await db.update(schema.projects).set(updateData).where(eq(schema.projects.id, id));
 
     const updatedProject = await db

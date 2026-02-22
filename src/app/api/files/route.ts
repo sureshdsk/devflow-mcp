@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     const featureId = searchParams.get("featureId");
     const taskId = searchParams.get("taskId");
 
-    const db = getDb();
+    const db = await getDb();
 
     let files;
     if (taskId) {
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const db = getDb();
+    const db = await getDb();
 
     const newFile = {
       id: randomUUID(),

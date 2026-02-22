@@ -5,7 +5,7 @@ import { randomUUID } from "crypto";
 
 export async function GET() {
   try {
-    const db = getDb();
+    const db = await getDb();
     const projects = await db
       .select()
       .from(schema.projects)
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const db = getDb();
+    const db = await getDb();
 
     const newProject = {
       id: randomUUID(),

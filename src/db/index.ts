@@ -1,5 +1,5 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
 import { mkdirSync } from "fs";
 import { join } from "path";
@@ -19,16 +19,19 @@ function ensureDbDir() {
 
 let dbInstance: ReturnType<typeof drizzle> | null = null;
 
-export function getDb() {
+export async function getDb() {
   if (dbInstance) return dbInstance;
 
   ensureDbDir();
 
-  const sqlite = new Database(DB_PATH);
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("foreign_keys = ON");
+  const client = createClient({
+    url: `file:${DB_PATH}`,
+  });
 
-  dbInstance = drizzle(sqlite, { schema });
+  await client.execute("PRAGMA journal_mode = WAL");
+  await client.execute("PRAGMA foreign_keys = ON");
+
+  dbInstance = drizzle(client, { schema });
 
   return dbInstance;
 }

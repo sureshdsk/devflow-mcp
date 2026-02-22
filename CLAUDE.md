@@ -49,7 +49,7 @@ devflow mcp          # Start MCP server
 │  │ - get_or_create │  │ - bulk_create   │  │ - log_activity  │              │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘              │
 │                                  │                                           │
-│                    src/db/index-bun.ts (bun:sqlite)                         │
+│                    src/db/index.ts (@libsql/client)                         │
 └─────────────────────────────────┬───────────────────────────────────────────┘
                                   │
                     ┌─────────────┴─────────────┐
@@ -73,7 +73,7 @@ devflow mcp          # Start MCP server
 │                              │  │  │(filter view)│  │ (drag-drop tasks)   │ │
 └───────────────────────────────┘  │  └─────────────┘  └─────────────────────┘ │
                     ▲              │                                           │
-                    │              │         src/db/index.ts (better-sqlite3)  │
+                    │              │         src/db/index.ts (@libsql/client)  │
                     │              └─────────────────────┬─────────────────────┘
                     │                                    │
                     │         REST API                   │
@@ -90,18 +90,18 @@ devflow mcp          # Start MCP server
    - stdio-based MCP server using `@modelcontextprotocol/sdk`
    - 20+ tools for project/feature/task/file management
    - Agent check-in/check-out workflow for task assignment
-   - Uses `src/db/index-bun.ts` with `bun:sqlite` driver
+   - Uses `src/db/index.ts` with `@libsql/client` driver
 
 2. **Web UI** (`src/app/`) - Runs on Node.js
    - Next.js 16 App Router with React 19
    - Project tabs for filtering, Kanban board with drag-drop
-   - Uses `src/db/index.ts` with `better-sqlite3` driver
+   - Uses `src/db/index.ts` with `@libsql/client` driver
    - Real-time updates via WebSocket connection to localhost:3001
 
 3. **Database** (`~/.devflow/devflow.db`)
-   - SQLite with WAL mode for concurrent access
+   - SQLite-compatible (libSQL) with WAL mode for concurrent access
    - Drizzle ORM with typed schema
-   - Two drivers: `bun:sqlite` (MCP) and `better-sqlite3` (Next.js)
+   - Single unified driver: `@libsql/client` for both MCP server and Next.js
 
 4. **WebSocket Server** (`src/mcp/websocket.ts`)
    - Runs on port 3001, started by MCP server

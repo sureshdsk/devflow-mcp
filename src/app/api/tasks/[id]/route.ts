@@ -8,7 +8,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const db = getDb();
+    const db = await getDb();
     const task = await db
       .select()
       .from(schema.tasks)
@@ -49,7 +49,7 @@ export async function PATCH(
 
     updateData.updatedAt = new Date();
 
-    const db = getDb();
+    const db = await getDb();
     await db.update(schema.tasks).set(updateData).where(eq(schema.tasks.id, id));
 
     const updatedTask = await db
@@ -73,7 +73,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const db = getDb();
+    const db = await getDb();
     await db.delete(schema.tasks).where(eq(schema.tasks.id, id));
 
     return NextResponse.json({ success: true });
