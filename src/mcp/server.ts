@@ -6,9 +6,37 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { getDb, schema } from "../db/index.js";
-import { eq, desc, and, isNull } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { broadcastUpdate } from "./websocket.js";
+import path from "path";
+
+function slugify(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function defaultProjectName(): string {
+  return slugify(path.basename(process.cwd()));
+}
+import {
+  listSpecs,
+  getSpec,
+  createSpec,
+  getArtifact,
+  writeArtifact,
+  approveArtifact,
+  draftArtifact,
+  getSpecStatus,
+  parseTasksArtifact,
+  validateSpec,
+  archiveSpec,
+  getArtifactTemplate,
+  fillTaskSummary,
+  updateTaskBodyInSpec,
+} from "../lib/specs.js";
 
 const server = new Server(
   {
@@ -43,19 +71,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "create_project",
-        description: "Create a new project",
+        description: "Create a new project. If name is omitted, defaults to the current directory name (slugified).",
         inputSchema: {
           type: "object",
           properties: {
-            name: { type: "string", description: "Project name" },
+            name: { type: "string", description: "Project name (optional — defaults to current directory name)" },
             description: { type: "string", description: "Project description" },
           },
-          required: ["name"],
         },
       },
       {
         name: "get_project",
-        description: "Get project details with all features and tasks",
+        description: "Get project details with all tasks",
         inputSchema: {
           type: "object",
           properties: {
@@ -82,176 +109,38 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["projectId"],
         },
       },
-
       {
         name: "get_or_create_project",
-        description: "Get a project by name, creating it if it doesn't exist. Use this to ensure a project exists before adding tasks.",
+        description: "Get an existing project by name or create it if it doesn't exist. If name is omitted, defaults to the current directory name (slugified). Use the project directory name as a default if no project name is specified.",
         inputSchema: {
           type: "object",
           properties: {
-            name: { type: "string", description: "Project name to find or create" },
-            description: { type: "string", description: "Project description (used only if creating)" },
-          },
-          required: ["name"],
-        },
-      },
-
-      // Feature Management
-      {
-        name: "list_features",
-        description: "List features in a project",
-        inputSchema: {
-          type: "object",
-          properties: {
-            projectId: { type: "string", description: "Project ID" },
-          },
-          required: ["projectId"],
-        },
-      },
-      {
-        name: "create_feature",
-        description: "Create a new feature in a project",
-        inputSchema: {
-          type: "object",
-          properties: {
-            projectId: { type: "string", description: "Project ID" },
-            name: { type: "string", description: "Feature name" },
-            description: { type: "string", description: "Feature description" },
-          },
-          required: ["projectId", "name"],
-        },
-      },
-      {
-        name: "get_feature",
-        description: "Get feature details with all tasks",
-        inputSchema: {
-          type: "object",
-          properties: {
-            featureId: { type: "string", description: "Feature ID" },
-          },
-          required: ["featureId"],
-        },
-      },
-      {
-        name: "update_feature",
-        description: "Update an existing feature",
-        inputSchema: {
-          type: "object",
-          properties: {
-            featureId: { type: "string", description: "Feature ID" },
-            name: { type: "string", description: "New feature name" },
-            description: { type: "string", description: "New description" },
-            status: {
-              type: "string",
-              enum: ["planning", "in_progress", "completed"],
-              description: "New status",
-            },
-            order: { type: "number", description: "New order position" },
-          },
-          required: ["featureId"],
-        },
-      },
-      {
-        name: "create_features_bulk",
-        description: "Create multiple features at once in a project",
-        inputSchema: {
-          type: "object",
-          properties: {
-            projectId: { type: "string", description: "Project ID" },
-            features: {
-              type: "array",
-              description: "Array of feature objects",
-              items: {
-                type: "object",
-                properties: {
-                  name: { type: "string", description: "Feature name" },
-                  description: { type: "string", description: "Feature description" },
-                },
-                required: ["name"],
-              },
-            },
-          },
-          required: ["projectId", "features"],
-        },
-      },
-
-      // File Management
-      {
-        name: "upload_file",
-        description: "Upload a file (markdown, image, etc.) to a project, feature, or task",
-        inputSchema: {
-          type: "object",
-          properties: {
-            name: { type: "string", description: "File name" },
-            type: {
-              type: "string",
-              enum: ["markdown", "image", "pdf", "other"],
-              description: "File type",
-            },
-            content: { type: "string", description: "File content (for text files)" },
-            projectId: { type: "string", description: "Project ID (optional)" },
-            featureId: { type: "string", description: "Feature ID (optional)" },
-            taskId: { type: "string", description: "Task ID (optional)" },
-          },
-          required: ["name", "type", "content"],
-        },
-      },
-      {
-        name: "list_files",
-        description: "List files attached to a project, feature, or task",
-        inputSchema: {
-          type: "object",
-          properties: {
-            projectId: { type: "string", description: "Project ID (optional)" },
-            featureId: { type: "string", description: "Feature ID (optional)" },
-            taskId: { type: "string", description: "Task ID (optional)" },
+            name: { type: "string", description: "Project name (optional — defaults to current directory name)" },
+            description: { type: "string", description: "Description (used only if creating)" },
           },
         },
       },
-      {
-        name: "get_file",
-        description: "Get file content",
-        inputSchema: {
-          type: "object",
-          properties: {
-            fileId: { type: "string", description: "File ID" },
-          },
-          required: ["fileId"],
-        },
-      },
-      {
-        name: "update_file",
-        description: "Update file content",
-        inputSchema: {
-          type: "object",
-          properties: {
-            fileId: { type: "string", description: "File ID" },
-            content: { type: "string", description: "New file content" },
-          },
-          required: ["fileId", "content"],
-        },
-      },
-
       // Task Management
       {
         name: "list_tasks",
-        description: "List tasks, optionally filtered by project, feature, or status",
+        description: "List tasks with optional filters",
         inputSchema: {
           type: "object",
           properties: {
             projectId: { type: "string", description: "Filter by project ID" },
-            featureId: { type: "string", description: "Filter by feature ID" },
+            specName: { type: "string", description: "Filter by spec name" },
             status: {
               type: "string",
               enum: ["backlog", "todo", "in_progress", "interrupted", "done"],
               description: "Filter by status",
             },
+            assignedAgent: { type: "string", description: "Filter by assigned agent" },
           },
         },
       },
       {
         name: "get_task",
-        description: "Get detailed task information with all context and files",
+        description: "Get details of a specific task",
         inputSchema: {
           type: "object",
           properties: {
@@ -262,34 +151,43 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "create_task",
-        description: "Create a new task. You can specify either projectId or projectName (which will auto-create the project if it doesn't exist).",
+        description: "Create a new task. Can auto-create project if projectName is provided instead of projectId.",
         inputSchema: {
           type: "object",
           properties: {
-            projectId: { type: "string", description: "Project ID (optional if projectName is provided)" },
-            projectName: { type: "string", description: "Project name - will find or create the project automatically" },
-            featureId: { type: "string", description: "Feature ID (optional)" },
             title: { type: "string", description: "Task title" },
-            description: { type: "string", description: "Task description" },
+            body: { type: "string", description: "Task body (markdown)" },
+            description: { type: "string", description: "Task description (legacy — auto-composed into body if body not provided)" },
+            context: { type: "string", description: "Additional context (legacy — auto-composed into body if body not provided)" },
             priority: {
               type: "string",
               enum: ["low", "medium", "high", "urgent"],
               description: "Task priority",
             },
-            context: { type: "string", description: "Task context for AI agents" },
+            status: {
+              type: "string",
+              enum: ["backlog", "todo", "in_progress", "done"],
+              description: "Initial status (defaults to backlog)",
+            },
+            projectId: { type: "string", description: "Project ID" },
+            projectName: {
+              type: "string",
+              description: "Project name — auto-creates the project if it doesn't exist",
+            },
+            specName: { type: "string", description: "Spec name to link this task to" },
           },
           required: ["title"],
         },
       },
       {
         name: "create_tasks_bulk",
-        description: "Create multiple tasks at once. You can specify either projectId or projectName.",
+        description: "Create multiple tasks at once",
         inputSchema: {
           type: "object",
           properties: {
-            projectId: { type: "string", description: "Project ID (optional if projectName is provided)" },
-            projectName: { type: "string", description: "Project name - will find or create the project automatically" },
-            featureId: { type: "string", description: "Feature ID (optional)" },
+            projectId: { type: "string", description: "Project ID for all tasks" },
+            projectName: { type: "string", description: "Project name (auto-creates if needed)" },
+            specName: { type: "string", description: "Spec name to link tasks to" },
             tasks: {
               type: "array",
               description: "Array of task objects",
@@ -297,26 +195,28 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 type: "object",
                 properties: {
                   title: { type: "string" },
-                  description: { type: "string" },
-                  priority: { type: "string" },
-                  context: { type: "string" },
+                  body: { type: "string", description: "Task body (markdown)" },
+                  description: { type: "string", description: "Legacy — auto-composed into body if body not provided" },
+                  context: { type: "string", description: "Legacy — auto-composed into body if body not provided" },
+                  priority: { type: "string", enum: ["low", "medium", "high", "urgent"] },
+                  status: { type: "string", enum: ["backlog", "todo", "in_progress", "done"] },
                 },
                 required: ["title"],
               },
             },
           },
-          required: ["projectId", "tasks"],
+          required: ["tasks"],
         },
       },
       {
         name: "update_task",
-        description: "Update an existing task",
+        description: "Update a task's details or status",
         inputSchema: {
           type: "object",
           properties: {
             taskId: { type: "string", description: "Task ID" },
             title: { type: "string", description: "New title" },
-            description: { type: "string", description: "New description" },
+            body: { type: "string", description: "New task body (markdown)" },
             status: {
               type: "string",
               enum: ["backlog", "todo", "in_progress", "interrupted", "done"],
@@ -327,48 +227,62 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               enum: ["low", "medium", "high", "urgent"],
               description: "New priority",
             },
-            context: { type: "string", description: "Updated context" },
-            executionPlan: { type: "string", description: "Agent's execution plan" },
+            specName: { type: "string", description: "Link or re-link to a spec" },
           },
           required: ["taskId"],
         },
       },
+      // Agent Workflow
       {
         name: "check_in",
-        description: "Agent checks in to work on a task",
+        description: "Agent checks in to a task (sets status to in_progress, assigns agent)",
         inputSchema: {
           type: "object",
           properties: {
-            taskId: { type: "string", description: "Task ID" },
-            agentName: { type: "string", description: "Agent name" },
-            executionPlan: { type: "string", description: "Execution plan" },
+            taskId: { type: "string", description: "Task ID to check in to" },
+            agentName: { type: "string", description: "Name/identifier of the agent" },
+            executionPlan: { type: "string", description: "Agent's plan for completing the task" },
           },
           required: ["taskId", "agentName"],
         },
       },
       {
         name: "check_out",
-        description: "Agent checks out from a task",
+        description: "Agent checks out of a task (sets status to done)",
         inputSchema: {
           type: "object",
           properties: {
-            taskId: { type: "string", description: "Task ID" },
-            agentName: { type: "string", description: "Agent name" },
-            summary: { type: "string", description: "Work summary" },
+            taskId: { type: "string", description: "Task ID to check out of" },
+            agentName: { type: "string", description: "Name/identifier of the agent" },
+            taskSummary: {
+              type: "object",
+              description: "Structured summary of what was accomplished",
+              properties: {
+                whatWasDone: { type: "string", description: "What was accomplished" },
+                filesChanged: { type: "string", description: "Files changed (optional)" },
+                issuesEncountered: { type: "string", description: "Issues encountered (optional)" },
+                followUps: { type: "string", description: "Follow-up items (optional)" },
+              },
+              required: ["whatWasDone"],
+            },
           },
           required: ["taskId", "agentName"],
         },
       },
       {
         name: "log_activity",
-        description: "Log agent activity",
+        description: "Log an activity or comment on a task",
         inputSchema: {
           type: "object",
           properties: {
             taskId: { type: "string", description: "Task ID" },
-            agentName: { type: "string", description: "Agent name" },
-            action: { type: "string", description: "Action performed" },
-            details: { type: "string", description: "Additional details" },
+            agentName: { type: "string", description: "Name/identifier of the agent" },
+            action: {
+              type: "string",
+              enum: ["check_in", "check_out", "update", "comment"],
+              description: "Type of action",
+            },
+            details: { type: "string", description: "Activity details or comment" },
           },
           required: ["taskId", "agentName", "action"],
         },
@@ -380,679 +294,866 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           type: "object",
           properties: {
             taskId: { type: "string", description: "Task ID" },
+            limit: { type: "number", description: "Max number of entries (default 50)" },
           },
           required: ["taskId"],
+        },
+      },
+      // Spec Management
+      {
+        name: "list_specs",
+        description: "List all specs in the devflow/specs directory",
+        inputSchema: {
+          type: "object",
+          properties: {
+            projectId: { type: "string", description: "Filter by project ID (optional)" },
+          },
+        },
+      },
+      {
+        name: "create_spec",
+        description: "Create a new spec folder with meta and approvals files. Run list_projects or get_or_create_project first to get a projectId.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            name: {
+              type: "string",
+              description: "Spec folder name (slug, e.g. add-oauth)",
+            },
+            title: { type: "string", description: "Human-readable title" },
+            projectId: { type: "string", description: "Project ID to link to — run list_projects or get_or_create_project first" },
+            description: { type: "string", description: "Optional description" },
+            schema: {
+              type: "string",
+              description: "Schema name (defaults to spec-driven)",
+            },
+          },
+          required: ["name", "title", "projectId"],
+        },
+      },
+      {
+        name: "get_spec",
+        description: "Get full spec details including artifact contents and statuses",
+        inputSchema: {
+          type: "object",
+          properties: {
+            specName: { type: "string", description: "Spec folder name" },
+          },
+          required: ["specName"],
+        },
+      },
+      {
+        name: "get_spec_status",
+        description: "Get the DAG status of all artifacts in a spec",
+        inputSchema: {
+          type: "object",
+          properties: {
+            specName: { type: "string", description: "Spec folder name" },
+          },
+          required: ["specName"],
+        },
+      },
+      {
+        name: "get_artifact",
+        description: "Get the content of a spec artifact",
+        inputSchema: {
+          type: "object",
+          properties: {
+            specName: { type: "string", description: "Spec folder name" },
+            artifactType: {
+              type: "string",
+              description: "Artifact type (e.g. proposal, specs, design, tasks)",
+            },
+          },
+          required: ["specName", "artifactType"],
+        },
+      },
+      {
+        name: "get_artifact_template",
+        description: "Get the template for a spec artifact to use as a starting point",
+        inputSchema: {
+          type: "object",
+          properties: {
+            specName: { type: "string", description: "Spec folder name" },
+            artifactType: {
+              type: "string",
+              description: "Artifact type (e.g. proposal, specs, design, tasks)",
+            },
+          },
+          required: ["specName", "artifactType"],
+        },
+      },
+      {
+        name: "write_artifact",
+        description: "Write content to a spec artifact file. Blocked if required predecessors not approved.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            specName: { type: "string", description: "Spec folder name" },
+            artifactType: {
+              type: "string",
+              description: "Artifact type (e.g. proposal, specs, design, tasks)",
+            },
+            content: { type: "string", description: "Markdown content to write" },
+          },
+          required: ["specName", "artifactType", "content"],
+        },
+      },
+      {
+        name: "approve_artifact",
+        description: "Approve a spec artifact, allowing downstream artifacts to be written",
+        inputSchema: {
+          type: "object",
+          properties: {
+            specName: { type: "string", description: "Spec folder name" },
+            artifactType: {
+              type: "string",
+              description: "Artifact type to approve",
+            },
+            approvedBy: {
+              type: "string",
+              description: "Who is approving (agent name or 'human')",
+            },
+          },
+          required: ["specName", "artifactType"],
+        },
+      },
+      {
+        name: "draft_artifact",
+        description: "Reset an artifact approval back to draft state",
+        inputSchema: {
+          type: "object",
+          properties: {
+            specName: { type: "string", description: "Spec folder name" },
+            artifactType: { type: "string", description: "Artifact type to reset" },
+          },
+          required: ["specName", "artifactType"],
+        },
+      },
+      {
+        name: "validate_spec",
+        description: "Validate a spec for completeness and quality",
+        inputSchema: {
+          type: "object",
+          properties: {
+            specName: { type: "string", description: "Spec folder name" },
+          },
+          required: ["specName"],
+        },
+      },
+      {
+        name: "promote_spec",
+        description: "Promote approved tasks.md to Kanban tasks. The project is read from the spec's metadata — no need to supply projectId.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            specName: { type: "string", description: "Spec folder name" },
+          },
+          required: ["specName"],
+        },
+      },
+      {
+        name: "archive_spec",
+        description: "Move a spec to the archive folder",
+        inputSchema: {
+          type: "object",
+          properties: {
+            specName: { type: "string", description: "Spec folder name to archive" },
+          },
+          required: ["specName"],
         },
       },
     ],
   };
 });
 
-// Tool execution handler
+// Tool implementations
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const db = await getDb();
+  const { name, arguments: args } = request.params;
 
   try {
-    switch (request.params.name) {
-      // Project Management
+    switch (name) {
+      // ── Project tools ──────────────────────────────────────────────────────
       case "list_projects": {
-        const { status } = request.params.arguments as { status?: string };
-        let projects;
-        if (status) {
-          projects = await db
-            .select()
-            .from(schema.projects)
-            .where(eq(schema.projects.status, status));
-        } else {
-          projects = await db.select().from(schema.projects);
-        }
+        const db = await getDb();
+        let query = db.select().from(schema.projects);
+        const projects = await query.orderBy(desc(schema.projects.createdAt));
+
+        const filtered = (args as { status?: string }).status
+          ? projects.filter((p) => p.status === (args as { status: string }).status)
+          : projects;
+
         return {
-          content: [{ type: "text", text: JSON.stringify(projects, null, 2) }],
+          content: [{ type: "text", text: JSON.stringify(filtered, null, 2) }],
         };
       }
 
       case "create_project": {
-        const { name, description } = request.params.arguments as {
-          name: string;
+        const { name: rawName, description } = args as {
+          name?: string;
           description?: string;
         };
+        const projectName = rawName ? slugify(rawName) : defaultProjectName();
+        const db = await getDb();
         const newProject = {
           id: randomUUID(),
-          name,
+          name: projectName,
           description: description || null,
-          status: "active",
+          status: "active" as const,
         };
         await db.insert(schema.projects).values(newProject);
         broadcastUpdate({ type: "project_created", project: newProject });
         return {
-          content: [
-            { type: "text", text: `Project created: ${newProject.id}` },
-          ],
+          content: [{ type: "text", text: JSON.stringify(newProject, null, 2) }],
         };
       }
 
       case "get_project": {
-        const { projectId } = request.params.arguments as { projectId: string };
+        const { projectId } = args as { projectId: string };
+        const db = await getDb();
         const project = await db
           .select()
           .from(schema.projects)
           .where(eq(schema.projects.id, projectId))
           .limit(1);
+
         if (project.length === 0) {
-          throw new Error(`Project ${projectId} not found`);
+          return { content: [{ type: "text", text: "Project not found" }], isError: true };
         }
-        const features = await db
-          .select()
-          .from(schema.features)
-          .where(eq(schema.features.projectId, projectId));
+
         const tasks = await db
           .select()
           .from(schema.tasks)
-          .where(eq(schema.tasks.projectId, projectId));
-        const files = await db
-          .select()
-          .from(schema.files)
-          .where(eq(schema.files.projectId, projectId));
+          .where(eq(schema.tasks.projectId, projectId))
+          .orderBy(schema.tasks.order);
+
         return {
           content: [
             {
               type: "text",
-              text: JSON.stringify(
-                { project: project[0], features, tasks, files },
-                null,
-                2
-              ),
+              text: JSON.stringify({ ...project[0], tasks }, null, 2),
             },
           ],
         };
       }
 
       case "update_project": {
-        const { projectId, ...updates } = request.params.arguments as any;
-        const updateData: any = {};
-        if (updates.name) updateData.name = updates.name;
-        if (updates.description !== undefined)
-          updateData.description = updates.description;
-        if (updates.status) updateData.status = updates.status;
-        updateData.updatedAt = new Date();
-        await db
-          .update(schema.projects)
-          .set(updateData)
-          .where(eq(schema.projects.id, projectId));
-        broadcastUpdate({ type: "project_updated", projectId, updates });
-        return {
-          content: [{ type: "text", text: `Project ${projectId} updated` }],
-        };
-      }
-
-      case "get_or_create_project": {
-        const { name, description } = request.params.arguments as {
-          name: string;
-          description?: string;
-        };
-
-        // Try to find existing project by name (case-insensitive)
-        const existingProjects = await db
-          .select()
-          .from(schema.projects)
-          .where(eq(schema.projects.name, name));
-
-        if (existingProjects.length > 0) {
-          const project = existingProjects[0];
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  action: "found",
-                  project
-                }, null, 2),
-              },
-            ],
-          };
-        }
-
-        // Create new project
-        const newProject = {
-          id: randomUUID(),
-          name,
-          description: description || null,
-          status: "active",
-        };
-        await db.insert(schema.projects).values(newProject);
-        broadcastUpdate({ type: "project_created", project: newProject });
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                action: "created",
-                project: newProject
-              }, null, 2),
-            },
-          ],
-        };
-      }
-
-      // Feature Management
-      case "list_features": {
-        const { projectId } = request.params.arguments as { projectId: string };
-        const features = await db
-          .select()
-          .from(schema.features)
-          .where(eq(schema.features.projectId, projectId))
-          .orderBy(schema.features.order);
-        return {
-          content: [{ type: "text", text: JSON.stringify(features, null, 2) }],
-        };
-      }
-
-      case "create_feature": {
-        const { projectId, name, description } = request.params.arguments as {
+        const { projectId, ...updates } = args as {
           projectId: string;
-          name: string;
-          description?: string;
-        };
-        const newFeature = {
-          id: randomUUID(),
-          projectId,
-          name,
-          description: description || null,
-          status: "planning",
-          order: 0,
-        };
-        await db.insert(schema.features).values(newFeature);
-        broadcastUpdate({ type: "feature_created", feature: newFeature });
-        return {
-          content: [
-            { type: "text", text: `Feature created: ${newFeature.id}` },
-          ],
-        };
-      }
-
-      case "get_feature": {
-        const { featureId } = request.params.arguments as { featureId: string };
-        const feature = await db
-          .select()
-          .from(schema.features)
-          .where(eq(schema.features.id, featureId))
-          .limit(1);
-        if (feature.length === 0) {
-          throw new Error(`Feature ${featureId} not found`);
-        }
-        const tasks = await db
-          .select()
-          .from(schema.tasks)
-          .where(eq(schema.tasks.featureId, featureId));
-        const files = await db
-          .select()
-          .from(schema.files)
-          .where(eq(schema.files.featureId, featureId));
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                { feature: feature[0], tasks, files },
-                null,
-                2
-              ),
-            },
-          ],
-        };
-      }
-
-      case "update_feature": {
-        const { featureId, ...updates } = request.params.arguments as {
-          featureId: string;
           name?: string;
           description?: string;
           status?: string;
-          order?: number;
         };
-        const updateData: Record<string, unknown> = {};
-        if (updates.name) updateData.name = updates.name;
-        if (updates.description !== undefined)
-          updateData.description = updates.description;
-        if (updates.status) updateData.status = updates.status;
-        if (updates.order !== undefined) updateData.order = updates.order;
-        updateData.updatedAt = new Date();
+        const db = await getDb();
         await db
-          .update(schema.features)
-          .set(updateData)
-          .where(eq(schema.features.id, featureId));
-        broadcastUpdate({ type: "feature_updated", featureId, updates });
-        return {
-          content: [{ type: "text", text: `Feature ${featureId} updated` }],
-        };
-      }
+          .update(schema.projects)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(schema.projects.id, projectId));
 
-      case "create_features_bulk": {
-        const { projectId, features } = request.params.arguments as {
-          projectId: string;
-          features: Array<{
-            name: string;
-            description?: string;
-          }>;
-        };
-
-        // Verify project exists
-        const project = await db
+        const updated = await db
           .select()
           .from(schema.projects)
           .where(eq(schema.projects.id, projectId))
           .limit(1);
-        if (project.length === 0) {
-          throw new Error(`Project ${projectId} not found`);
-        }
 
-        const newFeatures = features.map((feature, index) => ({
-          id: randomUUID(),
-          projectId,
-          name: feature.name,
-          description: feature.description || null,
-          status: "planning",
-          order: index,
-        }));
-        await db.insert(schema.features).values(newFeatures);
-        broadcastUpdate({ type: "features_created_bulk", features: newFeatures });
+        broadcastUpdate({ type: "project_updated", project: updated[0] });
         return {
-          content: [
-            {
-              type: "text",
-              text: `Created ${newFeatures.length} features in project ${projectId}:\n${newFeatures.map(f => `- ${f.name} (${f.id})`).join('\n')}`,
-            },
-          ],
+          content: [{ type: "text", text: JSON.stringify(updated[0], null, 2) }],
         };
       }
 
-      // File Management
-      case "upload_file": {
-        const { name, type, content, projectId, featureId, taskId } =
-          request.params.arguments as {
-            name: string;
-            type: string;
-            content: string;
-            projectId?: string;
-            featureId?: string;
-            taskId?: string;
-          };
-        const newFile = {
-          id: randomUUID(),
-          projectId: projectId || null,
-          featureId: featureId || null,
-          taskId: taskId || null,
-          name,
-          type,
-          content,
-          path: null,
-          mimeType: type === "markdown" ? "text/markdown" : null,
-          size: content.length,
+      case "get_or_create_project": {
+        const { name: rawName, description } = args as {
+          name?: string;
+          description?: string;
         };
-        await db.insert(schema.files).values(newFile);
-        broadcastUpdate({ type: "file_uploaded", file: newFile });
-        return {
-          content: [{ type: "text", text: `File uploaded: ${newFile.id}` }],
-        };
-      }
-
-      case "list_files": {
-        const { projectId, featureId, taskId } = request.params.arguments as {
-          projectId?: string;
-          featureId?: string;
-          taskId?: string;
-        };
-        let files;
-        if (taskId) {
-          files = await db
-            .select()
-            .from(schema.files)
-            .where(eq(schema.files.taskId, taskId));
-        } else if (featureId) {
-          files = await db
-            .select()
-            .from(schema.files)
-            .where(eq(schema.files.featureId, featureId));
-        } else if (projectId) {
-          files = await db
-            .select()
-            .from(schema.files)
-            .where(eq(schema.files.projectId, projectId));
-        } else {
-          files = await db.select().from(schema.files);
-        }
-        return {
-          content: [{ type: "text", text: JSON.stringify(files, null, 2) }],
-        };
-      }
-
-      case "get_file": {
-        const { fileId } = request.params.arguments as { fileId: string };
-        const file = await db
+        const projectName = rawName ? slugify(rawName) : defaultProjectName();
+        const db = await getDb();
+        const existing = await db
           .select()
-          .from(schema.files)
-          .where(eq(schema.files.id, fileId))
+          .from(schema.projects)
+          .where(eq(schema.projects.name, projectName))
           .limit(1);
-        if (file.length === 0) {
-          throw new Error(`File ${fileId} not found`);
+
+        if (existing.length > 0) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ ...existing[0], created: false }, null, 2) }],
+          };
         }
+
+        const newProject = {
+          id: randomUUID(),
+          name: projectName,
+          description: description || null,
+          status: "active" as const,
+        };
+        await db.insert(schema.projects).values(newProject);
+        broadcastUpdate({ type: "project_created", project: newProject });
         return {
-          content: [{ type: "text", text: JSON.stringify(file[0], null, 2) }],
+          content: [{ type: "text", text: JSON.stringify({ ...newProject, created: true }, null, 2) }],
         };
       }
 
-      case "update_file": {
-        const { fileId, content } = request.params.arguments as {
-          fileId: string;
-          content: string;
-        };
-        await db
-          .update(schema.files)
-          .set({ content, size: content.length, updatedAt: new Date() })
-          .where(eq(schema.files.id, fileId));
-        broadcastUpdate({ type: "file_updated", fileId });
-        return {
-          content: [{ type: "text", text: `File ${fileId} updated` }],
-        };
-      }
-
-      // Task Management
+      // ── Task tools ─────────────────────────────────────────────────────────
       case "list_tasks": {
-        const { projectId, featureId, status } = request.params.arguments as {
+        const { projectId, specName, status, assignedAgent } = args as {
           projectId?: string;
-          featureId?: string;
+          specName?: string;
           status?: string;
+          assignedAgent?: string;
         };
-        let query = db.select().from(schema.tasks);
-        const conditions = [];
-        if (projectId) conditions.push(eq(schema.tasks.projectId, projectId));
-        if (featureId) conditions.push(eq(schema.tasks.featureId, featureId));
-        if (status) conditions.push(eq(schema.tasks.status, status));
-        if (conditions.length > 0) {
-          query = query.where(and(...conditions)) as any;
-        }
-        const tasks = await query.orderBy(schema.tasks.order);
+        const db = await getDb();
+        let tasks = await db
+          .select()
+          .from(schema.tasks)
+          .orderBy(schema.tasks.order);
+
+        if (projectId) tasks = tasks.filter((t) => t.projectId === projectId);
+        if (specName) tasks = tasks.filter((t) => t.specName === specName);
+        if (status) tasks = tasks.filter((t) => t.status === status);
+        if (assignedAgent) tasks = tasks.filter((t) => t.assignedAgent === assignedAgent);
+
         return {
           content: [{ type: "text", text: JSON.stringify(tasks, null, 2) }],
         };
       }
 
       case "get_task": {
-        const { taskId } = request.params.arguments as { taskId: string };
+        const { taskId } = args as { taskId: string };
+        const db = await getDb();
         const task = await db
           .select()
           .from(schema.tasks)
           .where(eq(schema.tasks.id, taskId))
           .limit(1);
+
         if (task.length === 0) {
-          throw new Error(`Task ${taskId} not found`);
+          return { content: [{ type: "text", text: "Task not found" }], isError: true };
         }
-        const files = await db
+
+        const activity = await db
           .select()
-          .from(schema.files)
-          .where(eq(schema.files.taskId, taskId));
+          .from(schema.agentActivity)
+          .where(eq(schema.agentActivity.taskId, taskId))
+          .orderBy(desc(schema.agentActivity.timestamp))
+          .limit(10);
+
         return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ task: task[0], files }, null, 2),
-            },
-          ],
+          content: [{ type: "text", text: JSON.stringify({ ...task[0], recentActivity: activity }, null, 2) }],
         };
       }
 
       case "create_task": {
-        const { projectId, projectName, featureId, title, description, priority, context } =
-          request.params.arguments as {
-            projectId?: string;
-            projectName?: string;
-            featureId?: string;
-            title: string;
-            description?: string;
-            priority?: string;
-            context?: string;
-          };
+        const { title, body: bodyParam, description, priority, status, context, projectId, projectName, specName } = args as {
+          title: string;
+          body?: string;
+          description?: string;
+          priority?: string;
+          status?: string;
+          context?: string;
+          projectId?: string;
+          projectName?: string;
+          specName?: string;
+        };
+        const db = await getDb();
 
-        // Resolve project ID from projectName if needed
-        let resolvedProjectId = projectId;
-        if (!resolvedProjectId && projectName) {
-          // Try to find existing project by name
-          const existingProjects = await db
+        let targetProjectId = projectId;
+
+        if (!targetProjectId && projectName) {
+          const sluggedName = slugify(projectName);
+          const existing = await db
             .select()
             .from(schema.projects)
-            .where(eq(schema.projects.name, projectName));
+            .where(eq(schema.projects.name, sluggedName))
+            .limit(1);
 
-          if (existingProjects.length > 0) {
-            resolvedProjectId = existingProjects[0].id;
+          if (existing.length > 0) {
+            targetProjectId = existing[0].id;
           } else {
-            // Create new project
             const newProject = {
               id: randomUUID(),
-              name: projectName,
+              name: sluggedName,
               description: null,
-              status: "active",
+              status: "active" as const,
             };
             await db.insert(schema.projects).values(newProject);
+            targetProjectId = newProject.id;
             broadcastUpdate({ type: "project_created", project: newProject });
-            resolvedProjectId = newProject.id;
           }
         }
 
-        if (!resolvedProjectId) {
-          // Fall back to first active project
-          const defaultProject = await db
-            .select()
-            .from(schema.projects)
-            .where(eq(schema.projects.status, "active"))
-            .limit(1);
-
-          if (defaultProject.length === 0) {
-            throw new Error("No project specified and no active project found. Please provide projectId or projectName.");
+        // Backwards compat: compose body from description+context if body not provided
+        let resolvedBody = bodyParam || null;
+        if (!resolvedBody && description) {
+          resolvedBody = `**Description**\n\n${description}`;
+          if (context) {
+            resolvedBody += `\n\n**Context**\n\n${context}`;
           }
-          resolvedProjectId = defaultProject[0].id;
         }
 
         const newTask = {
           id: randomUUID(),
-          projectId: resolvedProjectId,
-          featureId: featureId || null,
+          projectId: targetProjectId || null,
+          specName: specName || null,
           title,
-          description: description || null,
-          status: "backlog",
-          priority: priority || "medium",
-          context: context || null,
-          executionPlan: null,
+          body: resolvedBody,
+          status: (status || "backlog") as "backlog" | "todo" | "in_progress" | "done",
+          priority: (priority || "medium") as "low" | "medium" | "high" | "urgent",
           assignedAgent: null,
           order: 0,
         };
+
         await db.insert(schema.tasks).values(newTask);
         broadcastUpdate({ type: "task_created", task: newTask });
         return {
-          content: [{ type: "text", text: `Task created: ${newTask.id} in project ${resolvedProjectId}` }],
+          content: [{ type: "text", text: JSON.stringify(newTask, null, 2) }],
         };
       }
 
       case "create_tasks_bulk": {
-        const { projectId, projectName, featureId, tasks } = request.params.arguments as {
+        const { projectId, projectName, specName, tasks: taskList } = args as {
           projectId?: string;
           projectName?: string;
-          featureId?: string;
+          specName?: string;
           tasks: Array<{
             title: string;
+            body?: string;
             description?: string;
             priority?: string;
+            status?: string;
             context?: string;
           }>;
         };
+        const db = await getDb();
 
-        // Resolve project ID from projectName if needed
-        let resolvedProjectId = projectId;
-        if (!resolvedProjectId && projectName) {
-          const existingProjects = await db
+        let targetProjectId = projectId;
+
+        if (!targetProjectId && projectName) {
+          const sluggedName = slugify(projectName);
+          const existing = await db
             .select()
             .from(schema.projects)
-            .where(eq(schema.projects.name, projectName));
+            .where(eq(schema.projects.name, sluggedName))
+            .limit(1);
 
-          if (existingProjects.length > 0) {
-            resolvedProjectId = existingProjects[0].id;
+          if (existing.length > 0) {
+            targetProjectId = existing[0].id;
           } else {
             const newProject = {
               id: randomUUID(),
-              name: projectName,
+              name: sluggedName,
               description: null,
-              status: "active",
+              status: "active" as const,
             };
             await db.insert(schema.projects).values(newProject);
+            targetProjectId = newProject.id;
             broadcastUpdate({ type: "project_created", project: newProject });
-            resolvedProjectId = newProject.id;
           }
         }
 
-        if (!resolvedProjectId) {
-          throw new Error("No project specified. Please provide projectId or projectName.");
-        }
+        const newTasks = taskList.map((task, index) => {
+          // Backwards compat: compose body from description+context if body not provided
+          let resolvedBody = task.body || null;
+          if (!resolvedBody && task.description) {
+            resolvedBody = `**Description**\n\n${task.description}`;
+            if (task.context) {
+              resolvedBody += `\n\n**Context**\n\n${task.context}`;
+            }
+          }
+          return {
+            id: randomUUID(),
+            projectId: targetProjectId || null,
+            specName: specName || null,
+            title: task.title,
+            body: resolvedBody,
+            status: (task.status || "backlog") as "backlog" | "todo" | "in_progress" | "done",
+            priority: (task.priority || "medium") as "low" | "medium" | "high" | "urgent",
+            assignedAgent: null,
+            order: index,
+          };
+        });
 
-        const newTasks = tasks.map((task, index) => ({
-          id: randomUUID(),
-          projectId: resolvedProjectId,
-          featureId: featureId || null,
-          title: task.title,
-          description: task.description || null,
-          status: "backlog",
-          priority: task.priority || "medium",
-          context: task.context || null,
-          executionPlan: null,
-          assignedAgent: null,
-          order: index,
-        }));
         await db.insert(schema.tasks).values(newTasks);
-        broadcastUpdate({ type: "tasks_created_bulk", tasks: newTasks });
+        broadcastUpdate({ type: "tasks_created", count: newTasks.length });
         return {
-          content: [
-            { type: "text", text: `Created ${newTasks.length} tasks in project ${resolvedProjectId}` },
-          ],
+          content: [{ type: "text", text: JSON.stringify({ created: newTasks.length, tasks: newTasks }, null, 2) }],
         };
       }
 
       case "update_task": {
-        const { taskId, ...updates } = request.params.arguments as any;
-        const updateData: any = {};
-        if (updates.title) updateData.title = updates.title;
-        if (updates.description !== undefined)
-          updateData.description = updates.description;
-        if (updates.status) updateData.status = updates.status;
-        if (updates.priority) updateData.priority = updates.priority;
-        if (updates.context !== undefined) updateData.context = updates.context;
-        if (updates.executionPlan !== undefined)
-          updateData.executionPlan = updates.executionPlan;
-        updateData.updatedAt = new Date();
+        const { taskId, title, body: bodyParam, status, priority, specName } = args as {
+          taskId: string;
+          title?: string;
+          body?: string;
+          status?: string;
+          priority?: string;
+          specName?: string;
+        };
+        const updates: Record<string, unknown> = {};
+        if (title !== undefined) updates.title = title;
+        if (bodyParam !== undefined) updates.body = bodyParam;
+        if (status !== undefined) updates.status = status;
+        if (priority !== undefined) updates.priority = priority;
+        if (specName !== undefined) updates.specName = specName;
+        const db = await getDb();
         await db
           .update(schema.tasks)
-          .set(updateData)
+          .set({ ...updates, updatedAt: new Date() })
           .where(eq(schema.tasks.id, taskId));
-        broadcastUpdate({ type: "task_updated", taskId, updates });
+
+        const updated = await db
+          .select()
+          .from(schema.tasks)
+          .where(eq(schema.tasks.id, taskId))
+          .limit(1);
+
+        broadcastUpdate({ type: "task_updated", task: updated[0] });
         return {
-          content: [{ type: "text", text: `Task ${taskId} updated` }],
+          content: [{ type: "text", text: JSON.stringify(updated[0], null, 2) }],
         };
       }
 
+      // ── Agent workflow tools ───────────────────────────────────────────────
       case "check_in": {
-        const { taskId, agentName, executionPlan } = request.params
-          .arguments as {
+        const { taskId, agentName, executionPlan } = args as {
           taskId: string;
           agentName: string;
           executionPlan?: string;
         };
+        const db = await getDb();
+
+        // If executionPlan provided, prepend it to the existing body
+        const taskSet: Record<string, unknown> = {
+          status: "in_progress",
+          assignedAgent: agentName,
+          updatedAt: new Date(),
+        };
+
+        if (executionPlan) {
+          const existingTask = await db
+            .select()
+            .from(schema.tasks)
+            .where(eq(schema.tasks.id, taskId))
+            .limit(1);
+          const existingBody = existingTask[0]?.body || "";
+          const planSection = `**Execution Plan**\n\n${executionPlan}`;
+          taskSet.body = existingBody ? `${planSection}\n\n${existingBody}` : planSection;
+        }
+
         await db
           .update(schema.tasks)
-          .set({
-            status: "in_progress",
-            assignedAgent: agentName,
-            executionPlan: executionPlan || null,
-            updatedAt: new Date(),
-          })
+          .set(taskSet)
           .where(eq(schema.tasks.id, taskId));
-        const activityId = randomUUID();
+
         await db.insert(schema.agentActivity).values({
-          id: activityId,
+          id: randomUUID(),
           taskId,
           agentName,
           action: "check_in",
-          details: executionPlan ? JSON.stringify({ executionPlan }) : null,
+          details: executionPlan ? `Plan: ${executionPlan}` : "Checked in",
+          timestamp: new Date(),
         });
-        broadcastUpdate({ type: "agent_checked_in", taskId, agentName });
+
+        const task = await db
+          .select()
+          .from(schema.tasks)
+          .where(eq(schema.tasks.id, taskId))
+          .limit(1);
+
+        broadcastUpdate({ type: "task_updated", task: task[0] });
         return {
-          content: [
-            { type: "text", text: `Agent ${agentName} checked in to ${taskId}` },
-          ],
+          content: [{ type: "text", text: JSON.stringify(task[0], null, 2) }],
         };
       }
 
       case "check_out": {
-        const { taskId, agentName, summary } = request.params.arguments as {
+        const { taskId, agentName, taskSummary } = args as {
           taskId: string;
           agentName: string;
-          summary?: string;
+          taskSummary?: {
+            whatWasDone: string;
+            filesChanged?: string;
+            issuesEncountered?: string;
+            followUps?: string;
+          };
         };
+        const db = await getDb();
+
+        const taskSet: Record<string, unknown> = {
+          status: "done",
+          updatedAt: new Date(),
+        };
+
+        // Fill task summary placeholders if provided
+        if (taskSummary) {
+          const existingTask = await db
+            .select()
+            .from(schema.tasks)
+            .where(eq(schema.tasks.id, taskId))
+            .limit(1);
+          const existingBody = existingTask[0]?.body || "";
+          const updatedBody = fillTaskSummary(existingBody, taskSummary);
+          taskSet.body = updatedBody;
+
+          // Write back to tasks.md on disk if spec linked
+          const specName = existingTask[0]?.specName;
+          const taskTitle = existingTask[0]?.title;
+          if (specName && taskTitle) {
+            await updateTaskBodyInSpec(specName, taskTitle, updatedBody);
+          }
+        }
+
         await db
           .update(schema.tasks)
-          .set({ status: "done", updatedAt: new Date() })
+          .set(taskSet)
           .where(eq(schema.tasks.id, taskId));
-        const activityId = randomUUID();
+
         await db.insert(schema.agentActivity).values({
-          id: activityId,
+          id: randomUUID(),
           taskId,
           agentName,
           action: "check_out",
-          details: summary ? JSON.stringify({ summary }) : null,
+          details: taskSummary ? taskSummary.whatWasDone : "Checked out",
+          timestamp: new Date(),
         });
-        broadcastUpdate({ type: "agent_checked_out", taskId, agentName });
+
+        const task = await db
+          .select()
+          .from(schema.tasks)
+          .where(eq(schema.tasks.id, taskId))
+          .limit(1);
+
+        broadcastUpdate({ type: "task_updated", task: task[0] });
         return {
-          content: [
-            {
-              type: "text",
-              text: `Agent ${agentName} checked out from ${taskId}`,
-            },
-          ],
+          content: [{ type: "text", text: JSON.stringify(task[0], null, 2) }],
         };
       }
 
       case "log_activity": {
-        const { taskId, agentName, action, details } = request.params
-          .arguments as {
+        const { taskId, agentName, action, details } = args as {
           taskId: string;
           agentName: string;
           action: string;
           details?: string;
         };
-        const activityId = randomUUID();
-        await db.insert(schema.agentActivity).values({
-          id: activityId,
+        const db = await getDb();
+
+        const entry = {
+          id: randomUUID(),
           taskId,
           agentName,
           action,
           details: details || null,
-        });
+          timestamp: new Date(),
+        };
+
+        await db.insert(schema.agentActivity).values(entry);
+        broadcastUpdate({ type: "activity_logged", taskId });
         return {
-          content: [{ type: "text", text: `Activity logged for ${taskId}` }],
+          content: [{ type: "text", text: JSON.stringify(entry, null, 2) }],
         };
       }
 
       case "get_activity_log": {
-        const { taskId } = request.params.arguments as { taskId: string };
-        const activities = await db
+        const { taskId, limit } = args as { taskId: string; limit?: number };
+        const db = await getDb();
+
+        const activity = await db
           .select()
           .from(schema.agentActivity)
           .where(eq(schema.agentActivity.taskId, taskId))
-          .orderBy(desc(schema.agentActivity.timestamp));
+          .orderBy(desc(schema.agentActivity.timestamp))
+          .limit(limit || 50);
+
         return {
-          content: [{ type: "text", text: JSON.stringify(activities, null, 2) }],
+          content: [{ type: "text", text: JSON.stringify(activity, null, 2) }],
+        };
+      }
+
+      // ── Spec tools ─────────────────────────────────────────────────────────
+      case "list_specs": {
+        const { projectId: filterProjectId } = args as { projectId?: string };
+        let specs;
+        if (filterProjectId) {
+          const db = await getDb();
+          const dbSpecs = await db
+            .select()
+            .from(schema.specs)
+            .where(eq(schema.specs.projectId, filterProjectId));
+          specs = dbSpecs;
+        } else {
+          specs = await listSpecs();
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(specs, null, 2) }],
+        };
+      }
+
+      case "create_spec": {
+        const { name: specName, title, projectId, description, schema: schemaName } = args as {
+          name: string;
+          title: string;
+          projectId: string;
+          description?: string;
+          schema?: string;
+        };
+        await createSpec(specName, title, projectId, description, schemaName);
+        broadcastUpdate({ type: "spec_created", specName });
+        return {
+          content: [{ type: "text", text: JSON.stringify({ name: specName, title, projectId, created: true }, null, 2) }],
+        };
+      }
+
+      case "get_spec": {
+        const { specName } = args as { specName: string };
+        const spec = await getSpec(specName);
+        return {
+          content: [{ type: "text", text: JSON.stringify(spec, null, 2) }],
+        };
+      }
+
+      case "get_spec_status": {
+        const { specName } = args as { specName: string };
+        const statuses = await getSpecStatus(specName);
+        return {
+          content: [{ type: "text", text: JSON.stringify(statuses, null, 2) }],
+        };
+      }
+
+      case "get_artifact": {
+        const { specName, artifactType } = args as { specName: string; artifactType: string };
+        const content = await getArtifact(specName, artifactType);
+        if (content === null) {
+          return { content: [{ type: "text", text: `Artifact "${artifactType}" not found in spec "${specName}"` }], isError: true };
+        }
+        return {
+          content: [{ type: "text", text: content }],
+        };
+      }
+
+      case "get_artifact_template": {
+        const { specName, artifactType } = args as { specName: string; artifactType: string };
+        const template = await getArtifactTemplate(specName, artifactType);
+        return {
+          content: [{ type: "text", text: template }],
+        };
+      }
+
+      case "write_artifact": {
+        const { specName, artifactType, content } = args as {
+          specName: string;
+          artifactType: string;
+          content: string;
+        };
+
+        // Check blocker gate
+        const statuses = await getSpecStatus(specName);
+        const status = statuses.find((s) => s.id === artifactType);
+        if (status?.state === "blocked") {
+          return {
+            content: [{ type: "text", text: `Cannot write "${artifactType}": required artifacts (${status.requires.join(", ")}) must be approved first` }],
+            isError: true,
+          };
+        }
+
+        await writeArtifact(specName, artifactType, content);
+        broadcastUpdate({ type: "artifact_updated", specName, artifactType });
+        return {
+          content: [{ type: "text", text: `Successfully wrote ${artifactType} for spec "${specName}"` }],
+        };
+      }
+
+      case "approve_artifact": {
+        const { specName, artifactType, approvedBy } = args as {
+          specName: string;
+          artifactType: string;
+          approvedBy?: string;
+        };
+        await approveArtifact(specName, artifactType, approvedBy || "agent");
+        broadcastUpdate({ type: "artifact_approved", specName, artifactType });
+        return {
+          content: [{ type: "text", text: `Approved "${artifactType}" for spec "${specName}"` }],
+        };
+      }
+
+      case "draft_artifact": {
+        const { specName, artifactType } = args as { specName: string; artifactType: string };
+        await draftArtifact(specName, artifactType);
+        broadcastUpdate({ type: "artifact_drafted", specName, artifactType });
+        return {
+          content: [{ type: "text", text: `Reset "${artifactType}" to draft for spec "${specName}"` }],
+        };
+      }
+
+      case "validate_spec": {
+        const { specName } = args as { specName: string };
+        const report = await validateSpec(specName);
+        return {
+          content: [{ type: "text", text: JSON.stringify(report, null, 2) }],
+        };
+      }
+
+      case "promote_spec": {
+        const { specName } = args as { specName: string };
+
+        const specDetail = await getSpec(specName);
+        const projectId = specDetail.projectId;
+        if (!projectId) {
+          return {
+            content: [{ type: "text", text: 'Spec has no project — re-create it with a projectId' }],
+            isError: true,
+          };
+        }
+
+        if (specDetail.approvals.artifacts["tasks"]?.state !== "approved") {
+          return {
+            content: [{ type: "text", text: 'tasks artifact must be approved before promoting' }],
+            isError: true,
+          };
+        }
+
+        const parsedTasks = await parseTasksArtifact(specName);
+        if (parsedTasks.length === 0) {
+          return {
+            content: [{ type: "text", text: "No tasks found in tasks.md" }],
+            isError: true,
+          };
+        }
+
+        const db = await getDb();
+        const newTasks = parsedTasks.map((task, index) => ({
+          id: randomUUID(),
+          projectId,
+          specName,
+          title: task.title,
+          body: task.body || null,
+          status: "backlog" as const,
+          priority: (task.priority || "medium") as "low" | "medium" | "high" | "urgent",
+          assignedAgent: null,
+          order: index,
+        }));
+
+        await db.insert(schema.tasks).values(newTasks);
+        broadcastUpdate({ type: "spec_promoted", specName, taskCount: newTasks.length });
+        return {
+          content: [{ type: "text", text: JSON.stringify({ promoted: newTasks.length, tasks: newTasks }, null, 2) }],
+        };
+      }
+
+      case "archive_spec": {
+        const { specName } = args as { specName: string };
+        await archiveSpec(specName);
+        broadcastUpdate({ type: "spec_archived", specName });
+        return {
+          content: [{ type: "text", text: `Archived spec "${specName}"` }],
         };
       }
 
       default:
-        throw new Error(`Unknown tool: ${request.params.name}`);
+        return {
+          content: [{ type: "text", text: `Unknown tool: ${name}` }],
+          isError: true,
+        };
     }
   } catch (error) {
     return {
@@ -1068,12 +1169,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function main() {
+  // WebSocket client auto-connects on module import
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("DevFlow MCP Server v2.0 running on stdio");
+  console.error("DevFlow MCP server running on stdio");
 }
 
-main().catch((error) => {
-  console.error("Fatal error:", error);
-  process.exit(1);
-});
+main().catch(console.error);

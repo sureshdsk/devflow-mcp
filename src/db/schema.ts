@@ -15,55 +15,17 @@ export const projects = sqliteTable("projects", {
     .default(sql`(unixepoch())`),
 });
 
-// Features - Mid-level grouping within projects
-export const features = sqliteTable("features", {
-  id: text("id").primaryKey(),
-  projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  description: text("description"),
-  status: text("status").notNull().default("planning"), // planning, in_progress, completed
-  order: integer("order").notNull().default(0),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
-
 // Tasks - Individual work items
 export const tasks = sqliteTable("tasks", {
   id: text("id").primaryKey(),
   projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
-  featureId: text("feature_id").references(() => features.id, { onDelete: "set null" }),
+  specName: text("spec_name"), // string ref to spec folder name, no FK
   title: text("title").notNull(),
-  description: text("description"),
+  body: text("body"),
   status: text("status").notNull().default("backlog"), // backlog, todo, in_progress, interrupted, done
   priority: text("priority").notNull().default("medium"), // low, medium, high, urgent
-  context: text("context"), // Task-specific context for AI agents
-  executionPlan: text("execution_plan"), // Agent's execution plan
-  assignedAgent: text("assigned_agent"), // Which agent is working on this
-  order: integer("order").notNull().default(0), // For ordering within columns
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
-
-// File attachments - Documents, images, etc. attached to projects/features/tasks
-export const files = sqliteTable("files", {
-  id: text("id").primaryKey(),
-  projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
-  featureId: text("feature_id").references(() => features.id, { onDelete: "cascade" }),
-  taskId: text("task_id").references(() => tasks.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  type: text("type").notNull(), // markdown, image, pdf, etc.
-  content: text("content"), // For text-based files (markdown, etc.)
-  path: text("path"), // File system path for binary files
-  mimeType: text("mime_type"),
-  size: integer("size"), // File size in bytes
+  assignedAgent: text("assigned_agent"),
+  order: integer("order").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -77,8 +39,23 @@ export const agentActivity = sqliteTable("agent_activity", {
   taskId: text("task_id").references(() => tasks.id, { onDelete: "cascade" }),
   agentName: text("agent_name").notNull(),
   action: text("action").notNull(), // check_in, check_out, update, comment
-  details: text("details"), // JSON string with action details
+  details: text("details"),
   timestamp: integer("timestamp", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+// Specs - Planning artifacts per project
+export const specs = sqliteTable("specs", {
+  name: text("name").primaryKey(), // matches folder name, e.g. "add-oauth"
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  schema: text("schema").notNull().default("spec-driven"),
+  status: text("status").notNull().default("active"), // active | archived
+  createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
 });
@@ -86,11 +63,9 @@ export const agentActivity = sqliteTable("agent_activity", {
 // Type exports
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
-export type Feature = typeof features.$inferSelect;
-export type NewFeature = typeof features.$inferInsert;
 export type Task = typeof tasks.$inferSelect;
 export type NewTask = typeof tasks.$inferInsert;
-export type File = typeof files.$inferSelect;
-export type NewFile = typeof files.$inferInsert;
 export type AgentActivity = typeof agentActivity.$inferSelect;
 export type NewAgentActivity = typeof agentActivity.$inferInsert;
+export type Spec = typeof specs.$inferSelect;
+export type NewSpec = typeof specs.$inferInsert;

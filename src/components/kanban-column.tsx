@@ -2,7 +2,7 @@
 
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Task, Feature } from "@/db/schema";
+import { Task } from "@/db/schema";
 import { TaskCard } from "./task-card";
 import { cn } from "@/lib/utils";
 
@@ -11,15 +11,11 @@ interface KanbanColumnProps {
   title: string;
   color: string;
   tasks: Task[];
-  features?: Feature[];
+  features?: unknown[];
   onRefresh: () => void;
 }
 
-export function KanbanColumn({ id, title, color, tasks, features = [], onRefresh }: KanbanColumnProps) {
-  function getFeatureForTask(task: Task): Feature | undefined {
-    if (!task.featureId) return undefined;
-    return features.find(f => f.id === task.featureId);
-  }
+export function KanbanColumn({ id, title, color, tasks, onRefresh }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
@@ -45,8 +41,8 @@ export function KanbanColumn({ id, title, color, tasks, features = [], onRefresh
             <TaskCard
               key={task.id}
               task={task}
-              feature={getFeatureForTask(task)}
-              features={features}
+              feature={undefined}
+              features={[]}
               onRefresh={onRefresh}
             />
           ))}

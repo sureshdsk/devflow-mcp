@@ -1,0 +1,3 @@
+[mcp_servers.devflow]
+command = "devflow"
+args = ["mcp"]

@@ -36,14 +36,12 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
 
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (body.title !== undefined) updateData.title = body.title;
-    if (body.description !== undefined) updateData.description = body.description;
+    if (body.body !== undefined) updateData.body = body.body;
     if (body.status !== undefined) updateData.status = body.status;
     if (body.priority !== undefined) updateData.priority = body.priority;
-    if (body.featureId !== undefined) updateData.featureId = body.featureId;
-    if (body.context !== undefined) updateData.context = body.context;
-    if (body.executionPlan !== undefined) updateData.executionPlan = body.executionPlan;
+    if (body.specName !== undefined) updateData.specName = body.specName;
     if (body.assignedAgent !== undefined) updateData.assignedAgent = body.assignedAgent;
     if (body.order !== undefined) updateData.order = body.order;
 

@@ -3,6 +3,7 @@ import { createConnection } from "net";
 
 let wss: WebSocketServer | null = null;
 const clients = new Set<WebSocket>();
+const agentClients = new Map<WebSocket, string>(); // ws → agent name
 
 const DEFAULT_PORT = 3001;
 
@@ -46,16 +47,25 @@ export async function startWebSocketServer(port?: number): Promise<WebSocketServ
     wss = new WebSocketServer({ port: wsPort });
 
     wss.on("connection", (ws) => {
-      console.log(`[WebSocket] Client connected (total: ${clients.size + 1})`);
       clients.add(ws);
+      console.log(`[WebSocket] Client connected (total: ${clients.size})`);
 
-      // Handle messages from clients (broadcasts from MCP)
       ws.on("message", (data) => {
         try {
           const message = data.toString();
+          const parsed = JSON.parse(message);
+
+          // Identity handshake: MCP clients announce themselves
+          if (parsed.type === "identify" && parsed.role === "mcp") {
+            const agentName = parsed.agent || "Unknown Agent";
+            agentClients.set(ws, agentName);
+            console.log(`[WebSocket] MCP agent identified: ${agentName} (agents: ${agentClients.size})`);
+            broadcastAgentList();
+            return;
+          }
+
           console.log("[WebSocket] Relaying message:", message.substring(0, 100));
-          // Relay message to all OTHER clients (not the sender)
-          // MCP sends updates, browser clients receive them
+          // Relay to all non-sender clients (browser UIs)
           clients.forEach((client) => {
             if (client !== ws && client.readyState === WebSocket.OPEN) {
               client.send(message);
@@ -67,12 +77,19 @@ export async function startWebSocketServer(port?: number): Promise<WebSocketServ
       });
 
       ws.on("close", () => {
+        const wasAgent = agentClients.has(ws);
+        agentClients.delete(ws);
         clients.delete(ws);
         console.log(`[WebSocket] Client disconnected (total: ${clients.size})`);
+        if (wasAgent) {
+          console.log(`[WebSocket] MCP agent disconnected (agents: ${agentClients.size})`);
+          broadcastAgentList();
+        }
       });
 
       ws.on("error", (error) => {
         console.error("[WebSocket] Client error:", error);
+        agentClients.delete(ws);
         clients.delete(ws);
       });
     });
@@ -101,4 +118,22 @@ export function getWebSocketServer(): WebSocketServer | null {
 
 export function getClientCount(): number {
   return clients.size;
+}
+
+export function getAgentCount(): number {
+  return agentClients.size;
+}
+
+export function getAgentList(): string[] {
+  return Array.from(agentClients.values());
+}
+
+function broadcastAgentList() {
+  const agents = getAgentList();
+  const msg = JSON.stringify({ type: "agent_count", count: agents.length, agents });
+  clients.forEach((client) => {
+    if (!agentClients.has(client) && client.readyState === WebSocket.OPEN) {
+      client.send(msg);
+    }
+  });
 }

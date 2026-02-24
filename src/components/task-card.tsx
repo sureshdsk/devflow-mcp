@@ -3,19 +3,18 @@
 import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Task, Feature } from "@/db/schema";
+import { Task } from "@/db/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { GripVertical, User, FileText, Trash2, AlertTriangle } from "lucide-react";
 import { TaskDialog } from "./task-dialog";
-import { FeatureBadge, InterruptedBadge } from "./feature-badge";
 
 interface TaskCardProps {
   task: Task;
-  feature?: Feature | null;
-  features?: Feature[];
+  feature?: unknown;
+  features?: unknown[];
   onRefresh: () => void;
 }
 
@@ -26,7 +25,7 @@ const priorityColors = {
   urgent: "bg-[--color-accent] text-black",
 };
 
-export function TaskCard({ task, feature, features = [], onRefresh }: TaskCardProps) {
+export function TaskCard({ task, onRefresh }: TaskCardProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const {
     attributes,
@@ -102,16 +101,19 @@ export function TaskCard({ task, feature, features = [], onRefresh }: TaskCardPr
           </CardHeader>
 
           <CardContent className="space-y-2">
-            {task.description && (
-              <p className="text-xs line-clamp-2 font-medium">
-                {task.description}
-              </p>
-            )}
-
             <div className="flex flex-wrap gap-2">
-              {feature && <FeatureBadge feature={feature} />}
+              {task.status === "interrupted" && (
+                <Badge variant="outline" className="text-xs gap-1 border-amber-500 text-amber-700 bg-amber-50">
+                  <AlertTriangle className="h-3 w-3" />
+                  Interrupted
+                </Badge>
+              )}
 
-              {task.status === "interrupted" && <InterruptedBadge />}
+              {task.specName && (
+                <Badge variant="outline" className="text-xs font-mono">
+                  {task.specName}
+                </Badge>
+              )}
 
               <Badge
                 variant="outline"
@@ -127,27 +129,20 @@ export function TaskCard({ task, feature, features = [], onRefresh }: TaskCardPr
                 </Badge>
               )}
 
-              {task.context && (
+              {task.body && (
                 <Badge variant="outline" className="text-xs gap-1">
                   <FileText className="h-3 w-3" />
-                  Context
+                  Notes
                 </Badge>
               )}
             </div>
-
-            {task.executionPlan && (
-              <div className="mt-2 p-2 bg-gray-100 text-xs border-2 border-black">
-                <div className="font-bold mb-1 uppercase text-[10px]">Execution Plan:</div>
-                <div className="line-clamp-2 font-medium">{task.executionPlan}</div>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
 
       <TaskDialog
         task={task}
-        features={features}
+        features={[]}
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         onRefresh={onRefresh}
