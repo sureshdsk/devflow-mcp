@@ -12,7 +12,7 @@ DevFlow lets humans and AI agents collaborate through a spec-first workflow:
 Agents use MCP tools to write artifacts, check in/out of tasks, and keep execution visible across sessions.
 
 ![DevFlow Screenshot](docs/images/devflow-kanban.png)
-![DevFlow Windsurf](docs/images/devflow-mcp-windsurf.png)
+![DevFlow Spec Review](docs/images/devflow-spec-review.png)
 
 ## Requirements
 
