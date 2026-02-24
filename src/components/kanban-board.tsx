@@ -14,8 +14,8 @@ import { Task, Project } from "@/db/schema";
 import { KanbanColumn } from "./kanban-column";
 import { TaskCard } from "./task-card";
 import { ChevronDown, Trash2 } from "lucide-react";
-import { SpecSidebar } from "./specs/spec-sidebar";
-import Link from "next/link";
+import { SpecKanbanColumn } from "./specs/spec-kanban-column";
+import { SpecModal } from "./specs/spec-modal";
 
 type TaskStatus = "backlog" | "todo" | "in_progress" | "interrupted" | "done";
 
@@ -35,12 +35,11 @@ export function KanbanBoard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedSpecName, setSelectedSpecName] = useState<string | null>(null);
+  const [specPanelOpen, setSpecPanelOpen] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [agentCount, setAgentCount] = useState(0);
-  const [agents, setAgents] = useState<string[]>([]);
 
   const selectedProjectIdRef = useRef<string | null>(null);
   selectedProjectIdRef.current = selectedProjectId;
@@ -93,16 +92,11 @@ export function KanbanBoard() {
 
         ws.onopen = () => {
           console.log("WebSocket connected");
-          fetch("/api/agents").then(r => r.json()).then(d => { setAgentCount(d.count); setAgents(d.agents ?? []); }).catch(() => {});
         };
 
         ws.onmessage = (event) => {
           const data = JSON.parse(event.data);
-          if (data.type === "agent_count") {
-            setAgentCount(data.count);
-            setAgents(data.agents ?? []);
-            return;
-          }
+          if (data.type === "agent_count") return;
           if (data.type?.includes("project")) {
             fetchProjects();
           }
@@ -270,11 +264,7 @@ export function KanbanBoard() {
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-4">
                 <h1 className="text-3xl font-black uppercase tracking-tight">DevFlow</h1>
-                <nav className="flex gap-3">
-                  <span className="font-bold uppercase text-sm border-b-4 border-black">Board</span>
-                  <Link href="/specs" className="font-bold uppercase text-sm hover:underline">Specs</Link>
-                </nav>
-              </div>
+                </div>
 
               {/* Project Chooser Dropdown */}
               <div className="relative">
@@ -348,33 +338,7 @@ export function KanbanBoard() {
               </div>
             </div>
 
-            {/* Agent connection indicator */}
-            <div className="flex items-center gap-2 border-4 border-black bg-white font-mono text-xs font-bold uppercase overflow-hidden">
-              <div className="flex items-center gap-2 px-3 py-1.5 border-r-4 border-black">
-                <span className="relative flex h-2.5 w-2.5">
-                  {agentCount > 0 ? (
-                    <>
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
-                    </>
-                  ) : (
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-gray-300" />
-                  )}
-                </span>
-                <span className={agentCount > 0 ? "text-green-700" : "text-gray-400"}>
-                  {agentCount} agent{agentCount !== 1 ? "s" : ""}
-                </span>
-              </div>
-              {agents.length > 0 && (
-                <div className="flex items-center gap-1 px-2 py-1.5">
-                  {agents.map((name, i) => (
-                    <span key={i} className="px-2 py-0.5 bg-green-100 border-2 border-green-600 text-green-800 text-[10px] font-bold uppercase tracking-wide">
-                      {name}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
+            <div />
           </div>
         </div>
       </header>
@@ -397,11 +361,20 @@ export function KanbanBoard() {
       )}
 
       <div className="flex-1 min-h-0 overflow-hidden flex">
-        <SpecSidebar
+        {/* Specs column */}
+        <SpecKanbanColumn
           selectedSpecName={selectedSpecName}
-          onSelectSpec={setSelectedSpecName}
+          onSelectSpec={(name) => {
+            if (selectedSpecName === name && specPanelOpen) {
+              setSpecPanelOpen(false);
+            } else {
+              setSelectedSpecName(name);
+              setSpecPanelOpen(true);
+            }
+          }}
         />
 
+        {/* Kanban columns */}
         <main className="flex-1 min-h-0 overflow-hidden">
           <DndContext
             sensors={sensors}
@@ -438,6 +411,14 @@ export function KanbanBoard() {
             </DragOverlay>
           </DndContext>
         </main>
+
+        {/* Spec modal */}
+        {specPanelOpen && selectedSpecName && (
+          <SpecModal
+            specName={selectedSpecName}
+            onClose={() => setSpecPanelOpen(false)}
+          />
+        )}
       </div>
     </div>
   );

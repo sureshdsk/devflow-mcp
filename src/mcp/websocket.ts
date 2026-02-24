@@ -10,7 +10,7 @@ function detectAgentName(): string {
   if (process.env.CODEX) return "Codex";
   if (process.env.CURSOR_TRACE_ID || process.env.CURSOR_CHANNEL) return "Cursor";
   if (process.env.WINDSURF_PLUGIN_VERSION) return "Windsurf";
-  return "Unknown Agent";
+  return ""; // empty = unknown, server.ts will re-identify after MCP initialize
 }
 
 const MAX_RECONNECT_DELAY = 30000; // 30 seconds

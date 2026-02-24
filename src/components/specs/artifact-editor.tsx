@@ -19,6 +19,7 @@ interface ArtifactEditorProps {
   content: string | null;
   status: ArtifactStatus;
   onSave: () => void;
+  defaultMode?: "edit" | "preview";
 }
 
 function relativeTime(iso: string): string {
@@ -41,11 +42,12 @@ export function ArtifactEditor({
   content,
   status,
   onSave,
+  defaultMode = "edit",
 }: ArtifactEditorProps) {
   const [editContent, setEditContent] = useState(content || "");
   const [isSaving, setIsSaving] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
-  const [preview, setPreview] = useState(false);
+  const [preview, setPreview] = useState(defaultMode === "preview");
 
   async function handleSave() {
     setIsSaving(true);
@@ -89,9 +91,9 @@ export function ArtifactEditor({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 h-full">
       {/* Toolbar: Edit/Preview toggle + Save + Approve */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-shrink-0">
         <div className="flex border-4 border-black overflow-hidden">
           <button
             onClick={() => setPreview(false)}
@@ -134,12 +136,12 @@ export function ArtifactEditor({
       </div>
 
       {preview ? (
-        <div className="p-4 bg-gray-50 border-4 border-black min-h-[400px] prose prose-sm max-w-none">
+        <div className="flex-1 overflow-y-auto p-4 bg-gray-50 border-4 border-black prose prose-sm max-w-none">
           <MarkdownPreview content={editContent} />
         </div>
       ) : (
         <textarea
-          className="p-4 bg-white border-4 border-black font-mono text-sm min-h-[400px] resize-y focus:outline-none focus:ring-2 focus:ring-black"
+          className="flex-1 p-4 bg-white border-4 border-black font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-black"
           value={editContent}
           onChange={(e) => setEditContent(e.target.value)}
           placeholder={`Write your ${artifactType} here...`}
