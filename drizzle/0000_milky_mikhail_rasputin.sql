@@ -1,15 +1,16 @@
-CREATE TABLE `agent_activity` (
+CREATE TABLE `projects` (
 	`id` text PRIMARY KEY NOT NULL,
-	`task_id` text,
-	`agent_name` text NOT NULL,
-	`action` text NOT NULL,
-	`details` text,
-	`timestamp` integer DEFAULT (unixepoch()) NOT NULL,
-	FOREIGN KEY (`task_id`) REFERENCES `tasks`(`id`) ON UPDATE no action ON DELETE cascade
+	`name` text NOT NULL,
+	`description` text,
+	`status` text DEFAULT 'active' NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `tasks` (
 	`id` text PRIMARY KEY NOT NULL,
+	`project_id` text,
+	`spec_name` text,
 	`title` text NOT NULL,
 	`description` text,
 	`status` text DEFAULT 'backlog' NOT NULL,
@@ -19,5 +20,16 @@ CREATE TABLE `tasks` (
 	`assigned_agent` text,
 	`order` integer DEFAULT 0 NOT NULL,
 	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
-	`updated_at` integer DEFAULT (unixepoch()) NOT NULL
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
+	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE TABLE `agent_activity` (
+	`id` text PRIMARY KEY NOT NULL,
+	`task_id` text,
+	`agent_name` text NOT NULL,
+	`action` text NOT NULL,
+	`details` text,
+	`timestamp` integer DEFAULT (unixepoch()) NOT NULL,
+	FOREIGN KEY (`task_id`) REFERENCES `tasks`(`id`) ON UPDATE no action ON DELETE cascade
 );

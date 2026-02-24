@@ -5,6 +5,14 @@ let reconnectAttempts = 0;
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 let isConnecting = false;
 
+function detectAgentName(): string {
+  if (process.env.CLAUDECODE || process.env.CLAUDE_CODE_ENTRYPOINT) return "Claude Code";
+  if (process.env.CODEX) return "Codex";
+  if (process.env.CURSOR_TRACE_ID || process.env.CURSOR_CHANNEL) return "Cursor";
+  if (process.env.WINDSURF_PLUGIN_VERSION) return "Windsurf";
+  return "Unknown Agent";
+}
+
 const MAX_RECONNECT_DELAY = 30000; // 30 seconds
 const INITIAL_RECONNECT_DELAY = 1000; // 1 second
 const DEFAULT_PORT = 3001;
@@ -58,6 +66,8 @@ function connectToServer() {
       isConnecting = false;
       reconnectAttempts = 0;
       console.error(`[MCP WebSocket] Connected to server at ${url}`);
+      // Announce this connection as an MCP agent with detected name
+      client!.send(JSON.stringify({ type: "identify", role: "mcp", agent: detectAgentName() }));
     });
 
     client.on("close", () => {

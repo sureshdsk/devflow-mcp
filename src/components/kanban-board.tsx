@@ -10,13 +10,12 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { Task, Project, Feature, File as DbFile } from "@/db/schema";
+import { Task, Project } from "@/db/schema";
 import { KanbanColumn } from "./kanban-column";
 import { TaskCard } from "./task-card";
-import { Button } from "./ui/button";
-import { Plus, FolderPlus, ChevronDown, Trash2, Layers } from "lucide-react";
-import { FeatureSidebar } from "./feature-sidebar";
-import { MarkdownEditor } from "./markdown-editor";
+import { ChevronDown, Trash2 } from "lucide-react";
+import { SpecSidebar } from "./specs/spec-sidebar";
+import Link from "next/link";
 
 type TaskStatus = "backlog" | "todo" | "in_progress" | "interrupted" | "done";
 
@@ -34,22 +33,17 @@ const STORAGE_KEY = "devflow-selected-project";
 export function KanbanBoard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [features, setFeatures] = useState<Feature[]>([]);
-  const [files, setFiles] = useState<DbFile[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
+  const [selectedSpecName, setSelectedSpecName] = useState<string | null>(null);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [agentCount, setAgentCount] = useState(0);
+  const [agents, setAgents] = useState<string[]>([]);
 
-  // Ref to track current project ID for WebSocket handler
   const selectedProjectIdRef = useRef<string | null>(null);
   selectedProjectIdRef.current = selectedProjectId;
-
-  // Markdown editor state
-  const [editorFile, setEditorFile] = useState<DbFile | null>(null);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -59,61 +53,33 @@ export function KanbanBoard() {
     })
   );
 
-  // Load saved project selection from localStorage
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      // "all" means show all projects
       setSelectedProjectId(saved === "all" ? null : saved);
     }
     setIsInitialized(true);
   }, []);
 
-  // Save project selection to localStorage
   const selectProject = useCallback((projectId: string | null) => {
     setSelectedProjectId(projectId);
-    setSelectedFeatureId(null); // Reset feature selection when project changes
+    setSelectedSpecName(null);
     localStorage.setItem(STORAGE_KEY, projectId || "all");
     setIsDropdownOpen(false);
   }, []);
 
-  // Fetch projects and tasks
   useEffect(() => {
     fetchProjects();
     fetchTasks();
 
-    // Poll for updates every 5 seconds as fallback for WebSocket
     const pollInterval = setInterval(() => {
       fetchTasks();
       fetchProjects();
-      if (selectedProjectId) {
-        fetchFeatures(selectedProjectId);
-        fetchFiles(selectedProjectId);
-      }
     }, 5000);
 
     return () => clearInterval(pollInterval);
   }, []);
 
-  // Fetch features and files when project changes
-  useEffect(() => {
-    async function loadProjectData() {
-      if (selectedProjectId) {
-        // Fetch features first, then use them to fetch files
-        const featuresResponse = await fetch(`/api/features?projectId=${selectedProjectId}`);
-        const featuresData = await featuresResponse.json();
-        setFeatures(featuresData);
-        // Pass features to fetchFiles to avoid stale state
-        await fetchFiles(selectedProjectId, featuresData);
-      } else {
-        setFeatures([]);
-        setFiles([]);
-      }
-    }
-    loadProjectData();
-  }, [selectedProjectId]);
-
-  // WebSocket connection for real-time updates with reconnection
   useEffect(() => {
     let ws: WebSocket | null = null;
     let reconnectTimeout: NodeJS.Timeout;
@@ -127,40 +93,30 @@ export function KanbanBoard() {
 
         ws.onopen = () => {
           console.log("WebSocket connected");
+          fetch("/api/agents").then(r => r.json()).then(d => { setAgentCount(d.count); setAgents(d.agents ?? []); }).catch(() => {});
         };
 
         ws.onmessage = (event) => {
           const data = JSON.parse(event.data);
-          console.log("WebSocket update:", data);
-
-          // Use ref to get current project ID (avoids stale closure)
-          const currentProjectId = selectedProjectIdRef.current;
-
-          // Refresh data on any update
+          if (data.type === "agent_count") {
+            setAgentCount(data.count);
+            setAgents(data.agents ?? []);
+            return;
+          }
           if (data.type?.includes("project")) {
             fetchProjects();
-          }
-          if (data.type?.includes("feature") && currentProjectId) {
-            fetchFeatures(currentProjectId);
-          }
-          if (data.type?.includes("file") && currentProjectId) {
-            fetchFiles(currentProjectId);
           }
           fetchTasks();
         };
 
-        ws.onerror = () => {
-          // Silently handle errors, will reconnect on close
-        };
+        ws.onerror = () => {};
 
         ws.onclose = () => {
-          console.log("WebSocket disconnected, reconnecting in 3s...");
           if (!isUnmounted) {
             reconnectTimeout = setTimeout(connect, 3000);
           }
         };
       } catch {
-        // WebSocket not available, retry later
         if (!isUnmounted) {
           reconnectTimeout = setTimeout(connect, 3000);
         }
@@ -175,7 +131,7 @@ export function KanbanBoard() {
       ws?.close();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run once - uses ref for current project ID
+  }, []);
 
   async function fetchProjects() {
     try {
@@ -183,15 +139,12 @@ export function KanbanBoard() {
       const data = await response.json();
       setProjects(data);
 
-      // If we have a saved selection, validate it still exists
       if (isInitialized && selectedProjectId) {
         const exists = data.some((p: Project) => p.id === selectedProjectId);
         if (!exists && data.length > 0) {
-          // Saved project no longer exists, select first one
           selectProject(data[0].id);
         }
       } else if (isInitialized && !selectedProjectId && !localStorage.getItem(STORAGE_KEY)) {
-        // No saved selection and first load, select first project
         if (data.length > 0) {
           selectProject(data[0].id);
         }
@@ -210,48 +163,6 @@ export function KanbanBoard() {
       console.error("Failed to fetch tasks:", error);
     } finally {
       setIsLoading(false);
-    }
-  }
-
-  async function fetchFeatures(projectId: string) {
-    try {
-      const response = await fetch(`/api/features?projectId=${projectId}`);
-      const data = await response.json();
-      setFeatures(data);
-    } catch (error) {
-      console.error("Failed to fetch features:", error);
-    }
-  }
-
-  async function fetchFiles(projectId: string, featureList?: Feature[]) {
-    try {
-      // Fetch project-level files
-      const response = await fetch(`/api/files?projectId=${projectId}`);
-      const projectFiles = await response.json();
-
-      // Use provided feature list or fetch features first
-      let currentFeatures: Feature[] = featureList || [];
-      if (!featureList) {
-        const featuresResponse = await fetch(`/api/features?projectId=${projectId}`);
-        currentFeatures = await featuresResponse.json();
-      }
-
-      // Fetch files for all features
-      const featureFilesPromises = currentFeatures.map(f =>
-        fetch(`/api/files?featureId=${f.id}`).then(r => r.json())
-      );
-      const featureFilesArrays = await Promise.all(featureFilesPromises);
-      const allFeatureFiles = featureFilesArrays.flat();
-
-      // Combine and dedupe
-      const allFiles = [...projectFiles, ...allFeatureFiles];
-      const uniqueFiles = allFiles.filter((file: DbFile, index: number, self: DbFile[]) =>
-        index === self.findIndex(f => f.id === file.id)
-      );
-
-      setFiles(uniqueFiles);
-    } catch (error) {
-      console.error("Failed to fetch files:", error);
     }
   }
 
@@ -282,12 +193,10 @@ export function KanbanBoard() {
     const taskId = active.id as string;
     const overId = over.id as string;
 
-    // over.id can be a column ID or a task ID (when dropped over another card)
     let newStatus: TaskStatus;
     if (COLUMN_IDS.has(overId)) {
       newStatus = overId as TaskStatus;
     } else {
-      // Dropped over a task card — use that task's status as the target column
       const overTask = tasks.find((t) => t.id === overId);
       if (!overTask) return;
       newStatus = overTask.status as TaskStatus;
@@ -302,70 +211,13 @@ export function KanbanBoard() {
   function getTasksByStatus(status: TaskStatus) {
     return tasks
       .filter((task) => {
-        // Handle interrupted tasks - show them in in_progress column
         if (task.status === "interrupted") {
           return status === "in_progress";
         }
         return task.status === status;
       })
       .filter((task) => !selectedProjectId || task.projectId === selectedProjectId)
-      .filter((task) => !selectedFeatureId || task.featureId === selectedFeatureId);
-  }
-
-  function getFeatureForTask(task: Task): Feature | undefined {
-    if (!task.featureId) return undefined;
-    return features.find(f => f.id === task.featureId);
-  }
-
-  async function createTask() {
-    if (!selectedProjectId) {
-      alert("Please select a project first");
-      return;
-    }
-
-    try {
-      const response = await fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: "New Task",
-          description: "Click to edit",
-          priority: "medium",
-          projectId: selectedProjectId,
-          featureId: selectedFeatureId || undefined,
-        }),
-      });
-
-      if (response.ok) {
-        await fetchTasks();
-      }
-    } catch (error) {
-      console.error("Failed to create task:", error);
-    }
-  }
-
-  async function createProject() {
-    const name = prompt("Enter project name:");
-    if (!name) return;
-
-    try {
-      const response = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          description: "",
-        }),
-      });
-
-      if (response.ok) {
-        const newProject = await response.json();
-        await fetchProjects();
-        selectProject(newProject.id);
-      }
-    } catch (error) {
-      console.error("Failed to create project:", error);
-    }
+      .filter((task) => !selectedSpecName || task.specName === selectedSpecName);
   }
 
   async function deleteProject(projectId: string, projectName: string) {
@@ -382,7 +234,6 @@ export function KanbanBoard() {
       });
 
       if (response.ok) {
-        // If we deleted the selected project, switch to "All Projects"
         if (selectedProjectId === projectId) {
           selectProject(null);
         }
@@ -391,25 +242,6 @@ export function KanbanBoard() {
       }
     } catch (error) {
       console.error("Failed to delete project:", error);
-    }
-  }
-
-  function handleFileClick(file: DbFile) {
-    setEditorFile(file);
-    setIsEditorOpen(true);
-  }
-
-  function handleEditorSave() {
-    if (selectedProjectId) {
-      fetchFiles(selectedProjectId);
-    }
-  }
-
-  function handleRefreshAll() {
-    fetchTasks();
-    if (selectedProjectId) {
-      fetchFeatures(selectedProjectId);
-      fetchFiles(selectedProjectId);
     }
   }
 
@@ -425,8 +257,8 @@ export function KanbanBoard() {
   const projectTasks = selectedProjectId
     ? tasks.filter((t) => t.projectId === selectedProjectId)
     : tasks;
-  const filteredTasks = selectedFeatureId
-    ? projectTasks.filter((t) => t.featureId === selectedFeatureId)
+  const filteredTasks = selectedSpecName
+    ? projectTasks.filter((t) => t.specName === selectedSpecName)
     : projectTasks;
   const totalTasks = filteredTasks.length;
 
@@ -436,8 +268,12 @@ export function KanbanBoard() {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
-              <div>
+              <div className="flex items-center gap-4">
                 <h1 className="text-3xl font-black uppercase tracking-tight">DevFlow</h1>
+                <nav className="flex gap-3">
+                  <span className="font-bold uppercase text-sm border-b-4 border-black">Board</span>
+                  <Link href="/specs" className="font-bold uppercase text-sm hover:underline">Specs</Link>
+                </nav>
               </div>
 
               {/* Project Chooser Dropdown */}
@@ -455,13 +291,11 @@ export function KanbanBoard() {
 
                 {isDropdownOpen && (
                   <>
-                    {/* Backdrop */}
                     <div
                       className="fixed inset-0 z-10"
                       onClick={() => setIsDropdownOpen(false)}
                     />
 
-                    {/* Dropdown Menu */}
                     <div className="absolute top-full left-0 mt-2 w-64 bg-white border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] z-20 max-h-80 overflow-y-auto">
                       <button
                         onClick={() => selectProject(null)}
@@ -512,31 +346,39 @@ export function KanbanBoard() {
                   </>
                 )}
               </div>
-
-              {/* Feature indicator */}
-              {selectedFeatureId && (
-                <div className="flex items-center gap-2 px-3 py-1 bg-[--color-secondary] border-2 border-black text-sm font-bold">
-                  <Layers className="h-4 w-4" />
-                  <span>{features.find(f => f.id === selectedFeatureId)?.name}</span>
-                </div>
-              )}
             </div>
 
-            <div className="flex items-center gap-3">
-              <Button onClick={createProject} variant="outline" size="sm" className="gap-2">
-                <FolderPlus className="h-4 w-4" />
-                New Project
-              </Button>
-              <Button onClick={createTask} size="sm" className="gap-2">
-                <Plus className="h-4 w-4" />
-                New Task
-              </Button>
+            {/* Agent connection indicator */}
+            <div className="flex items-center gap-2 border-4 border-black bg-white font-mono text-xs font-bold uppercase overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-1.5 border-r-4 border-black">
+                <span className="relative flex h-2.5 w-2.5">
+                  {agentCount > 0 ? (
+                    <>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+                    </>
+                  ) : (
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-gray-300" />
+                  )}
+                </span>
+                <span className={agentCount > 0 ? "text-green-700" : "text-gray-400"}>
+                  {agentCount} agent{agentCount !== 1 ? "s" : ""}
+                </span>
+              </div>
+              {agents.length > 0 && (
+                <div className="flex items-center gap-1 px-2 py-1.5">
+                  {agents.map((name, i) => (
+                    <span key={i} className="px-2 py-0.5 bg-green-100 border-2 border-green-600 text-green-800 text-[10px] font-bold uppercase tracking-wide">
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </header>
 
-      {/* Current Project Info Bar */}
       {selectedProject && (
         <div className="bg-[--color-primary] border-b-4 border-black px-6 py-2">
           <div className="container mx-auto flex items-center justify-between">
@@ -548,7 +390,6 @@ export function KanbanBoard() {
             </div>
             <div className="flex items-center gap-4 text-sm font-bold">
               <span>{projectTasks.filter((t) => t.status === "in_progress").length} in progress</span>
-              <span>{projectTasks.filter((t) => t.status === "interrupted").length} interrupted</span>
               <span>{projectTasks.filter((t) => t.status === "done").length} done</span>
             </div>
           </div>
@@ -556,19 +397,11 @@ export function KanbanBoard() {
       )}
 
       <div className="flex-1 min-h-0 overflow-hidden flex">
-        {/* Feature Sidebar */}
-        <FeatureSidebar
-          projectId={selectedProjectId}
-          features={features}
-          files={files}
-          tasks={projectTasks}
-          selectedFeatureId={selectedFeatureId}
-          onSelectFeature={setSelectedFeatureId}
-          onFileClick={handleFileClick}
-          onRefresh={handleRefreshAll}
+        <SpecSidebar
+          selectedSpecName={selectedSpecName}
+          onSelectSpec={setSelectedSpecName}
         />
 
-        {/* Main Kanban Board */}
         <main className="flex-1 min-h-0 overflow-hidden">
           <DndContext
             sensors={sensors}
@@ -584,7 +417,7 @@ export function KanbanBoard() {
                     title={column.title}
                     color={column.color}
                     tasks={getTasksByStatus(column.id)}
-                    features={features}
+                    features={[]}
                     onRefresh={fetchTasks}
                   />
                 ))}
@@ -596,8 +429,8 @@ export function KanbanBoard() {
                 <div className="rotate-3 opacity-80">
                   <TaskCard
                     task={activeTask}
-                    feature={getFeatureForTask(activeTask)}
-                    features={features}
+                    feature={undefined}
+                    features={[]}
                     onRefresh={fetchTasks}
                   />
                 </div>
@@ -606,14 +439,6 @@ export function KanbanBoard() {
           </DndContext>
         </main>
       </div>
-
-      {/* Markdown Editor Sheet */}
-      <MarkdownEditor
-        file={editorFile}
-        open={isEditorOpen}
-        onOpenChange={setIsEditorOpen}
-        onSave={handleEditorSave}
-      />
     </div>
   );
 }

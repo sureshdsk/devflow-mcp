@@ -15,16 +15,66 @@ function hasBun() {
 }
 
 const command = process.argv[2];
+const subcommand = process.argv[3];
 
 switch (command) {
-  case 'init':
+  case 'init': {
     console.log('Initializing DevFlow database...');
     const initScript = path.join(__dirname, '..', 'scripts', 'init-db.js');
-    const initProcess = spawn('node', [initScript], { stdio: 'inherit' });
-    initProcess.on('exit', (code) => process.exit(code));
+    const initArgs = process.argv.slice(3);
+    const initProcess = spawn('node', [initScript, ...initArgs], { stdio: 'inherit' });
+    initProcess.on('exit', (code) => {
+      if (code !== 0) process.exit(code);
+      // Install skills and commands after DB init
+      const { installSkills, printReport } = require(path.join(__dirname, '..', 'scripts', 'install-skills.js'));
+      console.log('\nInstalling skills and slash commands...');
+      const report = installSkills(process.cwd(), {});
+      printReport(report);
+      console.log('\n✅ DevFlow initialized.');
+    });
     break;
+  }
 
-  case 'dev':
+  case 'tool': {
+    const { installSkills, printReport } = require(path.join(__dirname, '..', 'scripts', 'install-skills.js'));
+    if (subcommand === 'install' || subcommand === 'update') {
+      const args = process.argv.slice(4);
+      const options = {};
+      for (let i = 0; i < args.length; i++) {
+        if (args[i] === '--tools') options.tools = args[++i];
+        else if (args[i] === '--only') options.only = args[++i];
+        else if (args[i] === '--no-autodetect') options.autodetect = false;
+        else if (args[i] === '--dry-run') options.dryRun = true;
+        else if (args[i] === '--delivery') options.delivery = args[++i];
+        else if (args[i] === '--force') options.force = true;
+      }
+      if (subcommand === 'update') {
+        options.force = true;
+        if (options.autodetect === undefined) options.autodetect = false;
+        if (options.only === undefined && options.tools === undefined) options.tools = 'all';
+      }
+      console.log(`${subcommand === 'update' ? 'Updating' : 'Installing'} DevFlow skills and slash commands...`);
+      const report = installSkills(process.cwd(), options);
+      printReport(report);
+    } else {
+      console.log(`
+Usage:
+  devflow tool install [--tools all|codex|claudecode] [--only codex|claudecode] [--no-autodetect] [--dry-run] [--delivery both|skills|commands]
+  devflow tool update  [--tools all|codex|claudecode] [--only codex|claudecode] [--dry-run] [--delivery both|skills|commands]
+
+Examples:
+  devflow tool install                   # autodetect installed tools and install
+  devflow tool install --no-autodetect   # install for all supported tools
+  devflow tool install --only codex      # install for Codex only
+  devflow tool install --tools codex     # install for Codex only
+  devflow tool install --dry-run         # preview actions without writing
+  devflow tool update                    # re-write all managed sections
+      `);
+    }
+    break;
+  }
+
+  case 'dev': {
     console.log('Starting DevFlow web UI...');
     const pkgDir = path.join(__dirname, '..');
     const nextBin = path.join(pkgDir, 'node_modules', '.bin', 'next');
@@ -34,57 +84,62 @@ switch (command) {
     });
     devProcess.on('exit', (code) => process.exit(code));
     break;
+  }
 
-  case 'mcp':
-    console.log('Starting DevFlow MCP server...');
+  case 'mcp': {
     if (!hasBun()) {
-      console.error('Error: Bun is required for the MCP server');
-      console.error('Please install Bun: https://bun.sh');
-      console.error('\nAlternatively, you can use the web UI with Node.js:');
-      console.error('  devflow dev');
+      process.stderr.write('Error: Bun is required for the MCP server\n');
+      process.stderr.write('Please install Bun: https://bun.sh\n');
       process.exit(1);
     }
     const mcpScript = path.join(__dirname, '..', 'src', 'mcp', 'server.ts');
     const mcpProcess = spawn('bun', ['run', mcpScript], { stdio: 'inherit' });
     mcpProcess.on('exit', (code) => process.exit(code));
     break;
+  }
 
   case 'help':
   case '--help':
   case '-h':
   default:
     console.log(`
-DevFlow MCP - Context-First Kanban for AI Agents
+DevFlow MCP - Spec-Driven Kanban for AI Agents
 
 Usage:
-  devflow init        Initialize the database
-  devflow dev         Start the web UI and WebSocket server (http://localhost:3000)
-  devflow mcp         Start the MCP server for AI agents (requires Bun)
-  devflow help        Show this help message
+  devflow init [--schema ID] [--non-interactive]
+                                  Initialize database, choose default schema, and install skills/commands
+  devflow tool install            Install skills and slash commands for AI tools
+  devflow tool update             Update existing skills and slash commands
+  devflow dev                     Start the web UI (http://localhost:3000)
+  devflow mcp                     Start the MCP server for AI agents (requires Bun)
+  devflow help                    Show this help message
+
+Tool install options:
+  --tools all|codex|claudecode    Explicit tool selection (overrides autodetect)
+  --only codex|claudecode         Restrict install to a single tool
+  --no-autodetect                 Disable autodetect and target all supported tools
+  --dry-run                       Preview installation without writing files
+  --delivery both|skills|commands What to install (default: both)
+  --force                         Legacy compatibility flag (managed updates remain safe)
+
+Init options:
+  --schema <id>                   Set default schema template explicitly
+  --non-interactive               Disable prompts and use deterministic fallback
 
 Requirements:
   - Web UI: Node.js 20+ or Bun 1.0+
   - MCP Server: Bun 1.0+ (required for AI agent integration)
 
-Architecture:
-  - devflow dev     Starts web UI on :3000 AND WebSocket server on :3001
-  - devflow mcp     Connects TO the WebSocket server for real-time updates
-                    (if web UI not running, MCP still works, updates won't be real-time)
-
 Environment Variables:
   DEVFLOW_WS_PORT   WebSocket server port (default: 3001)
+  CODEX_HOME        Override Codex home directory (default: ~/.codex)
 
 Examples:
-  # First time setup
   devflow init
-
-  # Start the web UI (works with Node.js or Bun)
+  devflow tool install --tools codex
+  devflow tool update
   devflow dev
-
-  # Start the MCP server (requires Bun)
   devflow mcp
-
-For more information, visit: https://github.com/yourusername/devflow-mcp
     `);
     process.exit(command === 'help' || command === '--help' || command === '-h' ? 0 : 1);
 }

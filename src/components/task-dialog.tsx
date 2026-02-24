@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Task, Feature } from "@/db/schema";
+import { Task } from "@/db/schema";
 import {
   Dialog,
   DialogContent,
@@ -11,34 +11,42 @@ import {
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { User, Clock } from "lucide-react";
+import { MarkdownPreview } from "./markdown-preview";
 
 interface TaskDialogProps {
   task: Task;
-  features?: Feature[];
+  features?: unknown[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRefresh: () => void;
 }
 
-export function TaskDialog({ task, features = [], open, onOpenChange, onRefresh }: TaskDialogProps) {
+export function TaskDialog({ task, open, onOpenChange, onRefresh }: TaskDialogProps) {
   const [title, setTitle] = useState(task.title);
-  const [description, setDescription] = useState(task.description || "");
   const [priority, setPriority] = useState(task.priority);
   const [status, setStatus] = useState(task.status);
-  const [featureId, setFeatureId] = useState(task.featureId || "");
-  const [context, setContext] = useState(task.context || "");
-  const [executionPlan, setExecutionPlan] = useState(task.executionPlan || "");
+  const [body, setBody] = useState(task.body);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Fetch fresh task data every time the dialog opens to get latest body from agent check_out
   useEffect(() => {
-    setTitle(task.title);
-    setDescription(task.description || "");
-    setPriority(task.priority);
-    setStatus(task.status);
-    setFeatureId(task.featureId || "");
-    setContext(task.context || "");
-    setExecutionPlan(task.executionPlan || "");
-  }, [task]);
+    if (!open) return;
+    fetch(`/api/tasks/${task.id}`)
+      .then((r) => r.json())
+      .then((fresh: Task) => {
+        setTitle(fresh.title);
+        setPriority(fresh.priority);
+        setStatus(fresh.status);
+        setBody(fresh.body);
+      })
+      .catch(() => {
+        // fall back to prop values
+        setTitle(task.title);
+        setPriority(task.priority);
+        setStatus(task.status);
+        setBody(task.body);
+      });
+  }, [open, task.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSave() {
     setIsSaving(true);
@@ -46,15 +54,7 @@ export function TaskDialog({ task, features = [], open, onOpenChange, onRefresh 
       await fetch(`/api/tasks/${task.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          description,
-          priority,
-          status,
-          featureId: featureId || null,
-          context,
-          executionPlan,
-        }),
+        body: JSON.stringify({ title, priority, status }),
       });
       onRefresh();
       onOpenChange(false);
@@ -84,19 +84,6 @@ export function TaskDialog({ task, features = [], open, onOpenChange, onRefresh 
               onChange={(e) => setTitle(e.target.value)}
               className="w-full px-4 py-3 border-3 border-black font-bold focus:outline-none focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
               placeholder="Task title"
-            />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wide mb-2 block">
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-4 py-3 border-3 border-black font-medium focus:outline-none focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] min-h-[100px]"
-              placeholder="Task description"
             />
           </div>
 
@@ -136,51 +123,26 @@ export function TaskDialog({ task, features = [], open, onOpenChange, onRefresh 
             </div>
           </div>
 
-          {/* Feature */}
-          {features.length > 0 && (
+          {/* Spec Name */}
+          {task.specName && (
             <div>
               <label className="text-xs font-bold uppercase tracking-wide mb-2 block">
-                Feature
+                Spec
               </label>
-              <select
-                value={featureId}
-                onChange={(e) => setFeatureId(e.target.value)}
-                className="w-full px-4 py-3 border-3 border-black font-bold focus:outline-none focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-              >
-                <option value="">No Feature</option>
-                {features.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
+              <div className="px-4 py-2 border-2 border-black bg-gray-50 font-mono text-sm">
+                {task.specName}
+              </div>
             </div>
           )}
 
-          {/* Context (for AI agents) */}
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wide mb-2 block">
-              Task Context (for AI Agents)
-            </label>
-            <textarea
-              value={context}
-              onChange={(e) => setContext(e.target.value)}
-              className="w-full px-4 py-3 border-3 border-black font-mono text-sm focus:outline-none focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] min-h-[120px]"
-              placeholder="Provide context, requirements, constraints, and any relevant information for AI agents working on this task..."
-            />
-            <p className="text-xs font-bold mt-2">
-              This context will be available to AI agents via the MCP server
-            </p>
-          </div>
-
-          {/* Execution Plan (set by agents) */}
-          {executionPlan && (
+          {/* Task Card (read-only body) */}
+          {body && (
             <div>
               <label className="text-xs font-bold uppercase tracking-wide mb-2 block">
-                Execution Plan (from Agent)
+                Task Card
               </label>
-              <div className="w-full px-4 py-3 border-3 border-black bg-gray-100 min-h-[100px] font-mono text-sm whitespace-pre-wrap">
-                {executionPlan}
+              <div className="w-full px-4 py-3 border-2 border-black bg-gray-50 min-h-[100px] text-sm overflow-auto max-h-[300px]">
+                <MarkdownPreview content={body} />
               </div>
             </div>
           )}
