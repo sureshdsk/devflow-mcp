@@ -1168,11 +1168,37 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
+function resolveAgentName(): string {
+  // 1. Env-based detection (set by agent host process)
+  if (process.env.CLAUDECODE || process.env.CLAUDE_CODE_ENTRYPOINT) return "Claude Code";
+  if (process.env.CODEX) return "Codex";
+  if (process.env.CURSOR_TRACE_ID || process.env.CURSOR_CHANNEL) return "Cursor";
+  if (process.env.WINDSURF_PLUGIN_VERSION) return "Windsurf";
+  // 2. MCP clientInfo (available after initialize handshake)
+  const clientInfo = server.getClientVersion();
+  if (clientInfo?.name) {
+    const n = clientInfo.name.toLowerCase();
+    if (n.includes("claude")) return "Claude Code";
+    if (n.includes("codex")) return "Codex";
+    if (n.includes("cursor")) return "Cursor";
+    if (n.includes("windsurf")) return "Windsurf";
+    if (n.includes("copilot")) return "Copilot";
+    return clientInfo.name; // use as-is if unrecognized
+  }
+  return "Unknown Agent";
+}
+
 async function main() {
-  // WebSocket client auto-connects on module import
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("DevFlow MCP server running on stdio");
+
+  // Re-broadcast identify after initialize so clientInfo is available
+  // The initial identify (sent on WS open) uses env-based detection;
+  // this one fires ~1s later with the MCP clientInfo name as fallback.
+  setTimeout(() => {
+    broadcastUpdate({ type: "identify", role: "mcp", agent: resolveAgentName() });
+  }, 1000);
 }
 
 main().catch(console.error);

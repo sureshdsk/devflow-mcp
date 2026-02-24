@@ -58,9 +58,12 @@ export async function startWebSocketServer(port?: number): Promise<WebSocketServ
           // Identity handshake: MCP clients announce themselves
           if (parsed.type === "identify" && parsed.role === "mcp") {
             const agentName = parsed.agent || "Unknown Agent";
+            const prev = agentClients.get(ws);
             agentClients.set(ws, agentName);
-            console.log(`[WebSocket] MCP agent identified: ${agentName} (agents: ${agentClients.size})`);
-            broadcastAgentList();
+            if (prev !== agentName) {
+              console.log(`[WebSocket] MCP agent identified: ${agentName} (agents: ${agentClients.size})`);
+              broadcastAgentList();
+            }
             return;
           }
 
@@ -102,6 +105,22 @@ export async function startWebSocketServer(port?: number): Promise<WebSocketServ
       }
       wss = null;
     });
+
+    // Periodically prune dead connections
+    setInterval(() => {
+      let pruned = 0;
+      clients.forEach((ws) => {
+        if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+          agentClients.delete(ws);
+          clients.delete(ws);
+          pruned++;
+        }
+      });
+      if (pruned > 0) {
+        console.log(`[WebSocket] Pruned ${pruned} dead connection(s)`);
+        broadcastAgentList();
+      }
+    }, 5000);
 
     console.log(`[WebSocket] Server started on port ${wsPort}`);
   } catch (error) {
