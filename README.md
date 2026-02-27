@@ -189,9 +189,17 @@ Use case: All work is complete and you want to move the spec out of active flow.
 Spec: improve-spec-validation-reporting
 ```
 
+### 8. Create a custom schema
+
+Use case: You need a workflow different from the bundled schemas (e.g. ML pipeline, infrastructure, security review).
+
+```text
+/df:schema
+```
+
 ## Custom Schemas
 
-DevFlow ships with bundled schemas (`spec-driven`, `backend-api`, `frontend-product`, `data-engineering`), but you can create your own to match your team's workflow.
+DevFlow ships with bundled schemas (`spec-driven`, `backend-api`, `frontend-product`, `data-engineering`, `devops-platform`), but you can create your own to match your team's workflow.
 
 ### How schemas work
 
@@ -232,7 +240,11 @@ The `requires` field creates the approval DAG — an artifact stays blocked unti
 
 ### Creating a custom schema
 
-Place your schema in `devflow/schemas/<schema-name>/`:
+**Interactive (recommended):** Use the `/df:schema` command to interactively create a schema. It will ask about your project type, workflow stages, and quality preferences, then generate everything for you.
+
+**Programmatic:** Use the `create_schema` MCP tool to create a schema from code.
+
+**Manual:** Place your schema in `devflow/schemas/<schema-name>/`:
 
 ```
 devflow/
@@ -311,6 +323,7 @@ devflow init --schema my-workflow
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Projects | `list_projects`, `create_project`, `get_project`, `update_project`, `get_or_create_project`                                                                                                                  |
 | Specs    | `create_spec`, `list_specs`, `get_spec`, `get_spec_status`, `write_artifact`, `get_artifact`, `get_artifact_template`, `approve_artifact`, `draft_artifact`, `validate_spec`, `promote_spec`, `archive_spec` |
+| Schemas  | `list_schemas`, `create_schema`                                                                                                                                                                              |
 | Tasks    | `list_tasks`, `get_task`, `create_task`, `create_tasks_bulk`, `update_task`                                                                                                                                  |
 | Agent    | `check_in`, `check_out`, `log_activity`, `get_activity_log`                                                                                                                                                  |
 
@@ -388,6 +401,8 @@ npm install -g @sureshdsk/devflow-mcp
 
 ## Documentation
 
+- [Custom Schemas](docs/custom-schemas.md) - creating and using custom schemas
+- [Local Dev Guide](docs/local-dev-guide.md) - local development setup
 - [AGENTS.md](AGENTS.md) - agent-specific repository guidance
 - [Contributing](CONTRIBUTING.md) - contribution guide
 

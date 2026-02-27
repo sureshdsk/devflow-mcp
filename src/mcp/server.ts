@@ -18,6 +18,8 @@ function slugify(str: string): string {
 function defaultProjectName(): string {
   return slugify(path.basename(process.cwd()));
 }
+import { listSchemas, createSchema } from '../lib/schema.js';
+import { getSpecsDir } from '../lib/specs-dir.js';
 import {
   listSpecs,
   getSpec,
@@ -477,6 +479,76 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             specName: { type: 'string', description: 'Spec folder name' },
           },
           required: ['specName'],
+        },
+      },
+      // Schema Management
+      {
+        name: 'list_schemas',
+        description:
+          'List all available schemas (bundled and project-local) with their artifact DAGs',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'create_schema',
+        description:
+          'Create a new project-local schema with schema.yaml and template files under devflow/schemas/<name>/',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: {
+              type: 'string',
+              description: 'Schema name (kebab-case slug, e.g. "ml-pipeline")',
+            },
+            artifacts: {
+              type: 'array',
+              description: 'Array of artifact definitions',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', description: 'Artifact ID (e.g. "proposal")' },
+                  generates: {
+                    type: 'string',
+                    description: 'Output filename (e.g. "proposal.md")',
+                  },
+                  description: { type: 'string', description: 'What this artifact covers' },
+                  template: {
+                    type: 'string',
+                    description: 'Template filename (e.g. "proposal.md")',
+                  },
+                  requires: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'IDs of artifacts that must be approved first',
+                  },
+                },
+                required: ['id', 'generates', 'description', 'template', 'requires'],
+              },
+            },
+            qualityRules: {
+              type: 'object',
+              description: 'Optional quality rules',
+              properties: {
+                requireRfc2119: { type: 'boolean' },
+                minScenariosPerRequirement: { type: 'number' },
+              },
+            },
+            apply: {
+              type: 'object',
+              description: 'Which artifacts must be approved before promoting to tasks',
+              properties: {
+                requires: { type: 'array', items: { type: 'string' } },
+              },
+            },
+            templates: {
+              type: 'object',
+              description:
+                'Map of artifactId → markdown template content. Keys should match artifact IDs.',
+            },
+          },
+          required: ['name', 'artifacts', 'templates'],
         },
       },
       {
@@ -1221,6 +1293,55 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text',
               text: JSON.stringify({ promoted: newTasks.length, tasks: newTasks }, null, 2),
+            },
+          ],
+        };
+      }
+
+      // ── Schema tools ───────────────────────────────────────────────────────
+      case 'list_schemas': {
+        const entries = await listSchemas(getSpecsDir());
+        const result = entries.map((e) => ({
+          id: e.id,
+          source: e.source,
+          artifacts: e.schema.artifacts.map((a) => ({
+            id: a.id,
+            generates: a.generates,
+            description: a.description,
+            requires: a.requires,
+          })),
+          qualityRules: e.schema.qualityRules,
+          apply: e.schema.apply,
+        }));
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case 'create_schema': {
+        const { name, artifacts, qualityRules, apply, templates } = args as {
+          name: string;
+          artifacts: Array<{
+            id: string;
+            generates: string;
+            description: string;
+            template: string;
+            requires: string[];
+          }>;
+          qualityRules?: { requireRfc2119?: boolean; minScenariosPerRequirement?: number };
+          apply?: { requires: string[] };
+          templates: Record<string, string>;
+        };
+        const schemaDir = await createSchema(
+          { name, artifacts, qualityRules, apply, templates },
+          getSpecsDir(),
+        );
+        broadcastUpdate({ type: 'schema_created', name });
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Created schema "${name}" at ${schemaDir}\n\nArtifacts: ${artifacts.map((a) => a.id).join(' → ')}`,
             },
           ],
         };

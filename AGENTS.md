@@ -156,7 +156,7 @@ devflow tool update                     # rewrite managed sections
 
 `devflow init` also runs `tool install` automatically.
 
-Available slash commands: `/df:new`, `/df:continue`, `/df:status`, `/df:validate`, `/df:promote`, `/df:apply`, `/df:archive`
+Available slash commands: `/df:new`, `/df:continue`, `/df:status`, `/df:validate`, `/df:promote`, `/df:apply`, `/df:archive`, `/df:schema`
 
 ## Local Development Build & Install
 

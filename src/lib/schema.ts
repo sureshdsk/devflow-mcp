@@ -159,6 +159,52 @@ export async function resolveTemplate(
   return `# ${artifactId}\n\n<!-- Write your ${artifactId} here -->\n`;
 }
 
+export interface CreateSchemaInput {
+  name: string;
+  artifacts: ArtifactDef[];
+  qualityRules?: Schema['qualityRules'];
+  apply?: Schema['apply'];
+  templates: Record<string, string>;
+}
+
+export async function createSchema(input: CreateSchemaInput, specsDir: string): Promise<string> {
+  const { name, artifacts, qualityRules, apply, templates } = input;
+
+  // Validate no name conflict
+  const existing = await listSchemas(specsDir);
+  const conflict = existing.find((e) => e.id === name);
+  if (conflict) {
+    throw new Error(`Schema "${name}" already exists (${conflict.source}: ${conflict.schemaPath})`);
+  }
+
+  const projectSchemasDir = path.join(path.dirname(specsDir), 'schemas', name);
+  const templatesDir = path.join(projectSchemasDir, 'templates');
+
+  fs.mkdirSync(templatesDir, { recursive: true });
+
+  // Build schema object
+  const schemaObj: Schema = {
+    name,
+    version: 1,
+    artifacts,
+    ...(qualityRules && { qualityRules }),
+    ...(apply && { apply }),
+  };
+
+  // Write schema.yaml
+  const schemaYaml = yaml.dump(schemaObj, { lineWidth: 120, noRefs: true });
+  fs.writeFileSync(path.join(projectSchemasDir, 'schema.yaml'), schemaYaml, 'utf-8');
+
+  // Write template files
+  for (const artifact of artifacts) {
+    const templateContent =
+      templates[artifact.id] || `# ${artifact.id}\n\n<!-- Write your ${artifact.id} here -->\n`;
+    fs.writeFileSync(path.join(templatesDir, artifact.template), templateContent, 'utf-8');
+  }
+
+  return projectSchemasDir;
+}
+
 export function getArtifactBlockers(schema: Schema): Record<string, string[]> {
   const blockers: Record<string, string[]> = {};
   for (const artifact of schema.artifacts) {
