@@ -82,7 +82,7 @@ test('installer refuses to overwrite unmanaged files even with force', () => {
       });
 
       assert.ok(report.failed >= 1);
-      const failedNewSkill = report.results.find(r => r.path.endsWith('.codex/skills/df-new.md'));
+      const failedNewSkill = report.results.find((r) => r.path.endsWith('.codex/skills/df-new.md'));
       assert.ok(failedNewSkill);
       assert.equal(failedNewSkill.errorCode, 'UNMANAGED_FILE');
       assert.equal(fs.readFileSync(target, 'utf-8'), '# user owned file\n');
@@ -106,8 +106,8 @@ test('installer autodetect default installs only detected environments', () => {
       });
 
       assert.deepEqual(report.selectedTools, ['codex']);
-      const codexSummary = report.environments.find(e => e.tool === 'codex');
-      const claudeSummary = report.environments.find(e => e.tool === 'claudecode');
+      const codexSummary = report.environments.find((e) => e.tool === 'codex');
+      const claudeSummary = report.environments.find((e) => e.tool === 'claudecode');
       assert.equal(codexSummary.status, 'installed');
       assert.equal(claudeSummary.status, 'skipped');
       assert.equal(claudeSummary.reason, 'not-detected');
@@ -128,7 +128,7 @@ test('dry-run reports planned actions without writing files', () => {
       });
       assert.equal(report.dryRun, true);
       assert.ok(report.created > 0);
-      assert.ok(report.results.some(r => r.action === 'would_create'));
+      assert.ok(report.results.some((r) => r.action === 'would_create'));
       const expectedPath = path.join(projectRoot, '.codex', 'skills', 'df-new.md');
       assert.equal(fs.existsSync(expectedPath), false);
     });
@@ -152,8 +152,8 @@ test('disabling autodetect targets all supported tools by default', () => {
       });
 
       assert.deepEqual(report.selectedTools.sort(), ['claudecode', 'codex']);
-      const codexSummary = report.environments.find(e => e.tool === 'codex');
-      const claudeSummary = report.environments.find(e => e.tool === 'claudecode');
+      const codexSummary = report.environments.find((e) => e.tool === 'codex');
+      const claudeSummary = report.environments.find((e) => e.tool === 'claudecode');
       assert.equal(codexSummary.status, 'installed');
       assert.equal(claudeSummary.status, 'installed');
     });

@@ -1,4 +1,5 @@
 <!-- DEVFLOW:BEGIN codex:skill:df-continue -->
+
 # Skill: /df:continue
 
 Use this skill to write the next unblocked artifact in the spec DAG in Codex.
@@ -21,4 +22,5 @@ Use this skill to write the next unblocked artifact in the spec DAG in Codex.
 
 Review gate: Never advance to the next artifact until `get_spec_status` confirms
 the current one is "done".
+
 <!-- DEVFLOW:END codex:skill:df-continue -->

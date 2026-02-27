@@ -1,4 +1,5 @@
 <!-- DEVFLOW:BEGIN codex:skill:df-develop -->
+
 # Skill: /df:develop
 
 Use this skill to implement promoted Kanban tasks for a spec one at a time in Codex.
@@ -13,12 +14,13 @@ Use this skill to implement promoted Kanban tasks for a spec one at a time in Co
    b. Read title, description, body (contains executionPlan) from the task.
    c. Implement the task. Run relevant tests.
    d. Call `check_out` with taskId, agentName, and a taskSummary
-      (whatWasDone, filesChanged, issuesEncountered, followUps).
+   (whatWasDone, filesChanged, issuesEncountered, followUps).
    e. Stop. Report: task title, what was done, files changed.
-      Wait for explicit "continue" or "next" before the next task.
+   Wait for explicit "continue" or "next" before the next task.
 4. After all tasks done, call `get_spec_status` to confirm development is complete.
 
 ## Rules
+
 - Never check_in to more than one task at a time.
 - If blocked, call `log_activity` with details and pause for human input.
 - On failure, keep the task `in_progress` and report — do not check_out.

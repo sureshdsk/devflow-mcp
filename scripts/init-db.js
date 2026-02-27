@@ -54,9 +54,7 @@ async function chooseSchemaTemplate(projectRoot, options) {
     availableSchemaIds,
     interactive,
     confirmKeepExisting: async (current) => {
-      const answer = await askQuestion(
-        `Current default schema is "${current}". Keep it? [Y/n]: `
-      );
+      const answer = await askQuestion(`Current default schema is "${current}". Keep it? [Y/n]: `);
       return answer === '' || /^y(es)?$/i.test(answer);
     },
     promptSelectSchema: async (ids, current) => {
@@ -84,7 +82,7 @@ async function chooseSchemaTemplate(projectRoot, options) {
   return {
     schemaId: result.schemaId,
     reason: result.reason,
-    configPath: path.join(projectRoot, '.devflow', 'project-config.json'),
+    configPath: path.join(projectRoot, 'devflow', 'project-config.json'),
   };
 }
 
@@ -110,7 +108,7 @@ async function initDatabase(options = {}) {
 
   // If DB has old schema (features table), drop and recreate
   const tables = await client.execute(
-    `SELECT name FROM sqlite_master WHERE type='table' AND name='features'`
+    `SELECT name FROM sqlite_master WHERE type='table' AND name='features'`,
   );
   if (tables.rows.length > 0) {
     console.log('⚠ Detected old schema (features table). Recreating database...');

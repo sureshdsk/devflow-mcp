@@ -2,11 +2,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const {
-  parseTools,
-  getToolAdapter,
-  detectEnvironments,
-} = require('./install-environments');
+const { parseTools, getToolAdapter, detectEnvironments } = require('./install-environments');
 
 const MANAGED_BEGIN = '<!-- DEVFLOW:BEGIN ';
 const MANAGED_END = '<!-- DEVFLOW:END ';
@@ -147,9 +143,10 @@ function renderSkill(tool, command, markerId) {
 
 function renderCommand(tool, command, markerId) {
   const commandName = `/df:${command}`;
-  const codexHeader = tool === 'codex'
-    ? ['---', `description: DevFlow ${commandName} workflow action`, '---', '']
-    : [];
+  const codexHeader =
+    tool === 'codex'
+      ? ['---', `description: DevFlow ${commandName} workflow action`, '---', '']
+      : [];
 
   const bodies = {
     new: [
@@ -273,7 +270,7 @@ function replaceManagedSection(existing, markerId, nextContent) {
   const escaped = markerId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(
     `<!-- DEVFLOW:BEGIN ${escaped} -->[\\s\\S]*?<!-- DEVFLOW:END ${escaped} -->\\n?`,
-    'm'
+    'm',
   );
   if (!pattern.test(existing)) return null;
   return existing.replace(pattern, nextContent);
@@ -300,7 +297,9 @@ function buildAssets(projectRoot, tools, delivery) {
       const commandMarker = `${tool}:command:df-${command}`;
       if (delivery !== 'commands') {
         assets.push({
-          tool, kind: 'skill', command,
+          tool,
+          kind: 'skill',
+          command,
           outputPath: path.join(dirs.skillsDir, `df-${command}.md`),
           markerId: skillMarker,
           content: renderSkill(tool, command, skillMarker),
@@ -308,7 +307,9 @@ function buildAssets(projectRoot, tools, delivery) {
       }
       if (delivery !== 'skills') {
         assets.push({
-          tool, kind: 'command', command,
+          tool,
+          kind: 'command',
+          command,
           outputPath: path.join(dirs.commandsDir, `df-${command}.md`),
           markerId: commandMarker,
           content: renderCommand(tool, command, commandMarker),
@@ -329,7 +330,7 @@ function selectTools(projectRoot, options) {
   } else if (options.tools !== undefined) {
     selectedTools = parseTools(options.tools);
   } else if (autodetect) {
-    selectedTools = detection.filter(d => d.detected).map(d => d.id);
+    selectedTools = detection.filter((d) => d.detected).map((d) => d.id);
   } else {
     selectedTools = parseTools('all');
   }
@@ -354,17 +355,17 @@ function installSkills(projectRoot, options = {}) {
     dryRun,
     autodetect: selection.autodetect,
     selectedTools: selection.selectedTools,
-    environments: selection.detection.map(d => ({
+    environments: selection.detection.map((d) => ({
       tool: d.id,
       detected: d.detected,
-      status: selection.selectedTools.includes(d.id)
-        ? (dryRun ? 'planned' : 'pending')
-        : 'skipped',
+      status: selection.selectedTools.includes(d.id) ? (dryRun ? 'planned' : 'pending') : 'skipped',
       reason: selection.selectedTools.includes(d.id)
         ? undefined
-        : (selection.autodetect && options.tools === undefined && !options.only
-          ? (d.detected ? 'not-selected' : 'not-detected')
-          : 'not-selected'),
+        : selection.autodetect && options.tools === undefined && !options.only
+          ? d.detected
+            ? 'not-selected'
+            : 'not-detected'
+          : 'not-selected',
       created: 0,
       updated: 0,
       skipped: 0,
@@ -378,7 +379,7 @@ function installSkills(projectRoot, options = {}) {
 
   for (const asset of assets) {
     const { outputPath, markerId, content, tool } = asset;
-    const envReport = report.environments.find(e => e.tool === tool);
+    const envReport = report.environments.find((e) => e.tool === tool);
     const displayPath = path.relative(projectRoot, outputPath);
     try {
       const alreadyExists = exists(outputPath);
@@ -393,7 +394,11 @@ function installSkills(projectRoot, options = {}) {
             }
             report.updated++;
             if (envReport) envReport.updated++;
-            report.results.push({ ...asset, path: displayPath, action: dryRun ? 'would_update' : 'updated' });
+            report.results.push({
+              ...asset,
+              path: displayPath,
+              action: dryRun ? 'would_update' : 'updated',
+            });
           } else {
             report.skipped++;
             if (envReport) envReport.skipped++;
@@ -403,7 +408,7 @@ function installSkills(projectRoot, options = {}) {
         }
 
         const ownershipError = new Error(
-          `Refusing to modify unmanaged file for ${tool}: ${displayPath}`
+          `Refusing to modify unmanaged file for ${tool}: ${displayPath}`,
         );
         ownershipError.code = 'UNMANAGED_FILE';
         throw ownershipError;
@@ -414,7 +419,11 @@ function installSkills(projectRoot, options = {}) {
       }
       report.created++;
       if (envReport) envReport.created++;
-      report.results.push({ ...asset, path: displayPath, action: dryRun ? 'would_create' : 'created' });
+      report.results.push({
+        ...asset,
+        path: displayPath,
+        action: dryRun ? 'would_create' : 'created',
+      });
     } catch (error) {
       report.failed++;
       if (envReport) envReport.failed++;
@@ -432,7 +441,8 @@ function installSkills(projectRoot, options = {}) {
     if (!selection.selectedTools.includes(envReport.tool)) continue;
     if (envReport.failed > 0) {
       envReport.status = 'failed';
-      envReport.reason = envReport.created + envReport.updated > 0 ? 'partial-failure' : 'install-failed';
+      envReport.reason =
+        envReport.created + envReport.updated > 0 ? 'partial-failure' : 'install-failed';
     } else if (dryRun) {
       envReport.status = 'planned';
     } else {
@@ -449,22 +459,29 @@ function printReport(report) {
     for (const env of report.environments) {
       const statusDetails = env.reason ? `${env.status} (${env.reason})` : env.status;
       const detectedText = env.detected ? 'detected' : 'not detected';
-      console.log(`  - ${env.tool}: ${statusDetails}; ${detectedText}; created=${env.created} updated=${env.updated} skipped=${env.skipped} failed=${env.failed}`);
+      console.log(
+        `  - ${env.tool}: ${statusDetails}; ${detectedText}; created=${env.created} updated=${env.updated} skipped=${env.skipped} failed=${env.failed}`,
+      );
     }
     console.log('');
   }
 
   for (const r of report.results) {
     const icon =
-      r.action === 'created' || r.action === 'would_create' ? '✓' :
-      r.action === 'updated' || r.action === 'would_update' ? '↻' :
-      r.action === 'failed' ? '✗' :
-      '–';
+      r.action === 'created' || r.action === 'would_create'
+        ? '✓'
+        : r.action === 'updated' || r.action === 'would_update'
+          ? '↻'
+          : r.action === 'failed'
+            ? '✗'
+            : '–';
     const errorSuffix = r.action === 'failed' ? ` - ${r.error}` : '';
     console.log(`  ${icon} [${r.tool}] ${r.kind} ${r.path} (${r.action})${errorSuffix}`);
   }
   const mode = report.dryRun ? ' (dry-run)' : '';
-  console.log(`\n  ${report.created} created, ${report.updated} updated, ${report.skipped} skipped, ${report.failed} failed${mode}`);
+  console.log(
+    `\n  ${report.created} created, ${report.updated} updated, ${report.skipped} skipped, ${report.failed} failed${mode}`,
+  );
 }
 
 // CLI usage: node scripts/install-skills.js [--tools all|codex|claudecode] [--delivery both|skills|commands] [--force]

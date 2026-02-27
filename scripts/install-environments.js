@@ -17,7 +17,14 @@ function parseTools(value) {
   const raw = (value ?? 'all').trim().toLowerCase();
   if (raw === 'none') return [];
   if (raw === 'all') return [...SUPPORTED_TOOLS];
-  return [...new Set(raw.split(',').map(p => normalizeToolId(p.trim())).filter(Boolean))];
+  return [
+    ...new Set(
+      raw
+        .split(',')
+        .map((p) => normalizeToolId(p.trim()))
+        .filter(Boolean),
+    ),
+  ];
 }
 
 function defaultCommandExists(command) {
@@ -36,7 +43,7 @@ function buildDetectionContext(projectRoot, overrides = {}) {
 }
 
 function createDetectedEnvironment(id, signals) {
-  const detected = signals.some(signal => signal.present);
+  const detected = signals.some((signal) => signal.present);
   return { id, detected, signals };
 }
 
@@ -46,7 +53,11 @@ function detectCodex(context) {
     : path.join(context.homedir, '.codex');
   return createDetectedEnvironment('codex', [
     { kind: 'binary', name: 'codex', present: context.commandExists('codex') },
-    { kind: 'directory', name: path.join(context.projectRoot, '.codex'), present: context.pathExists(path.join(context.projectRoot, '.codex')) },
+    {
+      kind: 'directory',
+      name: path.join(context.projectRoot, '.codex'),
+      present: context.pathExists(path.join(context.projectRoot, '.codex')),
+    },
     { kind: 'directory', name: codexHome, present: context.pathExists(codexHome) },
   ]);
 }
@@ -54,8 +65,16 @@ function detectCodex(context) {
 function detectClaudeCode(context) {
   return createDetectedEnvironment('claudecode', [
     { kind: 'binary', name: 'claude', present: context.commandExists('claude') },
-    { kind: 'directory', name: path.join(context.projectRoot, '.claude'), present: context.pathExists(path.join(context.projectRoot, '.claude')) },
-    { kind: 'directory', name: path.join(context.homedir, '.claude'), present: context.pathExists(path.join(context.homedir, '.claude')) },
+    {
+      kind: 'directory',
+      name: path.join(context.projectRoot, '.claude'),
+      present: context.pathExists(path.join(context.projectRoot, '.claude')),
+    },
+    {
+      kind: 'directory',
+      name: path.join(context.homedir, '.claude'),
+      present: context.pathExists(path.join(context.homedir, '.claude')),
+    },
   ]);
 }
 
@@ -69,13 +88,13 @@ function getEnvironmentDetectors() {
 function detectEnvironments(projectRoot, overrides = {}) {
   const context = buildDetectionContext(projectRoot, overrides);
   const detectors = getEnvironmentDetectors();
-  return SUPPORTED_TOOLS.map(tool => detectors[tool].detect(context));
+  return SUPPORTED_TOOLS.map((tool) => detectors[tool].detect(context));
 }
 
 function detectInstalledTools(projectRoot, overrides = {}) {
   return detectEnvironments(projectRoot, overrides)
-    .filter(result => result.detected)
-    .map(result => result.id);
+    .filter((result) => result.detected)
+    .map((result) => result.id);
 }
 
 function getToolAdapters() {

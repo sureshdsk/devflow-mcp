@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { ArtifactDagStatus } from "./artifact-dag-status";
-import { ArtifactEditor } from "./artifact-editor";
-import { Button } from "@/components/ui/button";
+import { useState } from 'react';
+import { ArtifactDagStatus } from './artifact-dag-status';
+import { ArtifactEditor } from './artifact-editor';
+import { Button } from '@/components/ui/button';
 
 interface ArtifactStatus {
   id: string;
-  state: "blocked" | "ready" | "in_review" | "in_progress" | "done";
+  state: 'blocked' | 'ready' | 'in_review' | 'in_progress' | 'done';
   description: string;
   requires: string[];
   fileExists: boolean;
@@ -34,18 +34,18 @@ interface SpecDetailProps {
 }
 
 const TASK_STATUS_COLORS: Record<string, string> = {
-  backlog: "bg-gray-100 border-gray-400 text-gray-600",
-  todo: "bg-blue-100 border-blue-400 text-blue-700",
-  in_progress: "bg-orange-100 border-orange-400 text-orange-700",
-  interrupted: "bg-red-100 border-red-400 text-red-700",
-  done: "bg-green-100 border-green-500 text-green-700",
+  backlog: 'bg-gray-100 border-gray-400 text-gray-600',
+  todo: 'bg-blue-100 border-blue-400 text-blue-700',
+  in_progress: 'bg-orange-100 border-orange-400 text-orange-700',
+  interrupted: 'bg-red-100 border-red-400 text-red-700',
+  done: 'bg-green-100 border-green-500 text-green-700',
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
-  urgent: "text-red-600",
-  high: "text-orange-500",
-  medium: "text-gray-500",
-  low: "text-gray-400",
+  urgent: 'text-red-600',
+  high: 'text-orange-500',
+  medium: 'text-gray-500',
+  low: 'text-gray-400',
 };
 
 export function SpecDetail({
@@ -56,18 +56,18 @@ export function SpecDetail({
   tasks,
   onRefresh,
 }: SpecDetailProps) {
-  const [activeTab, setActiveTab] = useState(statuses[0]?.id || "proposal");
+  const [activeTab, setActiveTab] = useState(statuses[0]?.id || 'proposal');
   const [isPromoting, setIsPromoting] = useState(false);
 
-  const artifactStatuses = statuses.filter((s) => s.id !== "development");
-  const allArtifactsApproved = artifactStatuses.every((s) => s.state === "done");
-  const developmentStatus = statuses.find((s) => s.id === "development");
+  const artifactStatuses = statuses.filter((s) => s.id !== 'development');
+  const allArtifactsApproved = artifactStatuses.every((s) => s.state === 'done');
+  const developmentStatus = statuses.find((s) => s.id === 'development');
 
   async function handlePromote() {
     setIsPromoting(true);
     try {
       const response = await fetch(`/api/specs/${specName}/promote`, {
-        method: "POST",
+        method: 'POST',
       });
       const data = await response.json();
       if (response.ok) {
@@ -82,11 +82,11 @@ export function SpecDetail({
   }
 
   const activeStatus = statuses.find((s) => s.id === activeTab);
-  const isDevelopmentTab = activeTab === "development";
+  const isDevelopmentTab = activeTab === 'development';
 
   const total = tasks.length;
-  const done = tasks.filter((t) => t.status === "done").length;
-  const inProgress = tasks.filter((t) => t.status === "in_progress").length;
+  const done = tasks.filter((t) => t.status === 'done').length;
+  const inProgress = tasks.filter((t) => t.status === 'in_progress').length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -106,15 +106,17 @@ export function SpecDetail({
               disabled={isPromoting}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
-              {isPromoting ? "Promoting..." : "Promote to Tasks"}
+              {isPromoting ? 'Promoting...' : 'Promote to Tasks'}
             </Button>
           </div>
         </div>
       )}
 
-      {developmentStatus?.state === "done" && (
+      {developmentStatus?.state === 'done' && (
         <div className="p-4 bg-green-100 border-4 border-green-600">
-          <p className="font-black text-green-800 uppercase">✓ Spec complete — all {total} tasks done</p>
+          <p className="font-black text-green-800 uppercase">
+            ✓ Spec complete — all {total} tasks done
+          </p>
         </div>
       )}
 
@@ -125,7 +127,7 @@ export function SpecDetail({
               key={s.id}
               onClick={() => setActiveTab(s.id)}
               className={`px-4 py-2 font-bold uppercase text-sm border-r-4 border-black last:border-r-0 ${
-                activeTab === s.id ? "bg-black text-white" : "bg-white hover:bg-gray-100"
+                activeTab === s.id ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
               }`}
             >
               {s.id}
@@ -171,7 +173,7 @@ function DevelopmentPanel({
   done: number;
   inProgress: number;
 }) {
-  if (status?.state === "blocked") {
+  if (status?.state === 'blocked') {
     return (
       <div className="p-6 bg-gray-100 border-4 border-gray-300 text-center">
         <p className="font-bold text-gray-600 uppercase">
@@ -207,33 +209,39 @@ function DevelopmentPanel({
         </div>
         <span className="font-mono text-sm font-bold whitespace-nowrap">
           {done}/{total} done
-          {inProgress > 0 && <span className="text-orange-600 ml-2">· {inProgress} in progress</span>}
+          {inProgress > 0 && (
+            <span className="text-orange-600 ml-2">· {inProgress} in progress</span>
+          )}
         </span>
       </div>
 
       {/* Task list */}
       <div className="flex flex-col gap-2">
         {tasks.map((task) => (
-          <div
-            key={task.id}
-            className="flex items-center gap-3 p-3 border-4 border-black bg-white"
-          >
-            <span className={`text-lg ${task.status === "done" ? "opacity-100" : "opacity-30"}`}>
-              {task.status === "done" ? "✓" : task.status === "in_progress" ? "⟳" : "○"}
+          <div key={task.id} className="flex items-center gap-3 p-3 border-4 border-black bg-white">
+            <span className={`text-lg ${task.status === 'done' ? 'opacity-100' : 'opacity-30'}`}>
+              {task.status === 'done' ? '✓' : task.status === 'in_progress' ? '⟳' : '○'}
             </span>
-            <span className={`flex-1 font-bold text-sm ${task.status === "done" ? "line-through text-gray-400" : ""}`}>
+            <span
+              className={`flex-1 font-bold text-sm ${task.status === 'done' ? 'line-through text-gray-400' : ''}`}
+            >
               {task.title}
             </span>
-            <span className={`text-xs font-mono uppercase font-bold ${PRIORITY_COLORS[task.priority] || ""}`}>
+            <span
+              className={`text-xs font-mono uppercase font-bold ${PRIORITY_COLORS[task.priority] || ''}`}
+            >
               {task.priority}
             </span>
             <span
-              className={`px-2 py-0.5 border-2 text-xs font-bold uppercase ${TASK_STATUS_COLORS[task.status] || ""}`}
+              className={`px-2 py-0.5 border-2 text-xs font-bold uppercase ${TASK_STATUS_COLORS[task.status] || ''}`}
             >
-              {task.status.replace("_", " ")}
+              {task.status.replace('_', ' ')}
             </span>
             {task.assignedAgent && (
-              <span className="text-xs font-mono text-gray-500 truncate max-w-[120px]" title={task.assignedAgent}>
+              <span
+                className="text-xs font-mono text-gray-500 truncate max-w-[120px]"
+                title={task.assignedAgent}
+              >
                 @{task.assignedAgent}
               </span>
             )}

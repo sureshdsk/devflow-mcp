@@ -26,7 +26,9 @@ switch (command) {
     initProcess.on('exit', (code) => {
       if (code !== 0) process.exit(code);
       // Install skills and commands after DB init
-      const { installSkills, printReport } = require(path.join(__dirname, '..', 'scripts', 'install-skills.js'));
+      const { installSkills, printReport } = require(
+        path.join(__dirname, '..', 'scripts', 'install-skills.js'),
+      );
       console.log('\nInstalling skills and slash commands...');
       const report = installSkills(process.cwd(), {});
       printReport(report);
@@ -36,7 +38,9 @@ switch (command) {
   }
 
   case 'tool': {
-    const { installSkills, printReport } = require(path.join(__dirname, '..', 'scripts', 'install-skills.js'));
+    const { installSkills, printReport } = require(
+      path.join(__dirname, '..', 'scripts', 'install-skills.js'),
+    );
     if (subcommand === 'install' || subcommand === 'update') {
       const args = process.argv.slice(4);
       const options = {};
@@ -53,7 +57,9 @@ switch (command) {
         if (options.autodetect === undefined) options.autodetect = false;
         if (options.only === undefined && options.tools === undefined) options.tools = 'all';
       }
-      console.log(`${subcommand === 'update' ? 'Updating' : 'Installing'} DevFlow skills and slash commands...`);
+      console.log(
+        `${subcommand === 'update' ? 'Updating' : 'Installing'} DevFlow skills and slash commands...`,
+      );
       const report = installSkills(process.cwd(), options);
       printReport(report);
     } else {
@@ -82,14 +88,14 @@ Examples:
       const devProcess = spawn('node', [standaloneServer], {
         stdio: 'inherit',
         cwd: pkgDir,
-        env: { ...process.env, PORT: process.env.DEVFLOW_PORT || process.env.PORT || '3000' }
+        env: { ...process.env, PORT: process.env.DEVFLOW_PORT || process.env.PORT || '3000' },
       });
       devProcess.on('exit', (code) => process.exit(code));
     } else {
       const nextBin = path.join(pkgDir, 'node_modules', '.bin', 'next');
       const devProcess = spawn(nextBin, ['start'], {
         stdio: 'inherit',
-        cwd: pkgDir
+        cwd: pkgDir,
       });
       devProcess.on('exit', (code) => process.exit(code));
     }

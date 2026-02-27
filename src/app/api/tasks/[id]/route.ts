@@ -1,37 +1,24 @@
-import { NextResponse } from "next/server";
-import { getDb, schema } from "@/db";
-import { eq } from "drizzle-orm";
+import { NextResponse } from 'next/server';
+import { getDb, schema } from '@/db';
+import { eq } from 'drizzle-orm';
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const db = await getDb();
-    const task = await db
-      .select()
-      .from(schema.tasks)
-      .where(eq(schema.tasks.id, id))
-      .limit(1);
+    const task = await db.select().from(schema.tasks).where(eq(schema.tasks.id, id)).limit(1);
 
     if (task.length === 0) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
 
     return NextResponse.json(task[0]);
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to fetch task" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch task' }, { status: 500 });
   }
 }
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await request.json();
@@ -58,17 +45,11 @@ export async function PATCH(
 
     return NextResponse.json(updatedTask[0]);
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to update task" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update task' }, { status: 500 });
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const db = await getDb();
@@ -76,9 +57,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to delete task" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to delete task' }, { status: 500 });
   }
 }

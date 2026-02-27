@@ -11,15 +11,17 @@
 ## Scope
 
 ### In Scope
-- 
+
+-
 
 ### Out of Scope
-- 
+
+-
 
 ## Success Criteria
 
-- 
+-
 
 ## Risks & Assumptions
 
-- 
+-

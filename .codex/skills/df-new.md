@@ -1,4 +1,5 @@
 <!-- DEVFLOW:BEGIN codex:skill:df-new -->
+
 # Skill: /df:new
 
 Use this skill to start a new spec from scratch in Codex.
@@ -18,4 +19,5 @@ Use this skill to start a new spec from scratch in Codex.
 
 Review gate: Never write the next artifact until `get_spec_status` shows the
 current one is "done".
+
 <!-- DEVFLOW:END codex:skill:df-new -->

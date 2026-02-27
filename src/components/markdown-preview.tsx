@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
-import { cn } from "@/lib/utils";
+import { useEffect, useRef, useMemo, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import { cn } from '@/lib/utils';
 
 let mermaidCounter = 0;
 
@@ -16,17 +16,22 @@ function MermaidBlock({ chart }: { chart: string }) {
   useEffect(() => {
     if (!ref.current) return;
     let cancelled = false;
-    import("mermaid").then(({ default: mermaid }) => {
-      if (cancelled) return;
-      mermaid.initialize({ startOnLoad: false, theme: "neutral" });
-      return mermaid.render(id, chart);
-    }).then((result) => {
-      if (cancelled || !result) return;
-      if (ref.current) ref.current.innerHTML = result.svg;
-    }).catch((err) => {
-      if (!cancelled && ref.current) setError(err.message);
-    });
-    return () => { cancelled = true; };
+    import('mermaid')
+      .then(({ default: mermaid }) => {
+        if (cancelled) return;
+        mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
+        return mermaid.render(id, chart);
+      })
+      .then((result) => {
+        if (cancelled || !result) return;
+        if (ref.current) ref.current.innerHTML = result.svg;
+      })
+      .catch((err) => {
+        if (!cancelled && ref.current) setError(err.message);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id, chart]);
 
   if (error) return <div className="my-4 text-red-600">Mermaid error: {error}</div>;
@@ -40,7 +45,7 @@ interface MarkdownPreviewProps {
 
 export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
   return (
-    <div className={cn("markdown-preview", className)}>
+    <div className={cn('markdown-preview', className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw]}
@@ -69,17 +74,23 @@ export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
             </div>
           ),
           thead: ({ children }) => <thead className="bg-black text-white">{children}</thead>,
-          th: ({ children }) => <th className="px-3 py-2 text-left font-bold uppercase">{children}</th>,
+          th: ({ children }) => (
+            <th className="px-3 py-2 text-left font-bold uppercase">{children}</th>
+          ),
           td: ({ children }) => <td className="px-3 py-2 border-t-2 border-black">{children}</td>,
           // Code blocks + Mermaid
           code: ({ className: cls, children, ...props }) => {
-            const lang = /language-(\w+)/.exec(cls || "")?.[1];
-            if (lang === "mermaid") {
+            const lang = /language-(\w+)/.exec(cls || '')?.[1];
+            if (lang === 'mermaid') {
               return <MermaidBlock chart={String(children).trim()} />;
             }
             // Inline code (no language class)
             if (!cls) {
-              return <code className="inline-code" {...props}>{children}</code>;
+              return (
+                <code className="inline-code" {...props}>
+                  {children}
+                </code>
+              );
             }
             return (
               <pre className="code-block" data-lang={lang}>

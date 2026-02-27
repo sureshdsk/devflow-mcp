@@ -13,7 +13,7 @@ const HOME_DIR = '/home/tester';
 
 function detectionHarness({ commands = [], paths = [] } = {}) {
   const commandSet = new Set(commands);
-  const pathSet = new Set(paths.map(p => path.resolve(p)));
+  const pathSet = new Set(paths.map((p) => path.resolve(p)));
   return {
     commandExists: (command) => commandSet.has(command),
     pathExists: (targetPath) => pathSet.has(path.resolve(targetPath)),
@@ -23,23 +23,32 @@ function detectionHarness({ commands = [], paths = [] } = {}) {
 }
 
 test('detectInstalledTools returns claudecode when only Claude signals are present', () => {
-  const detected = detectInstalledTools(PROJECT_ROOT, detectionHarness({
-    commands: ['claude'],
-  }));
+  const detected = detectInstalledTools(
+    PROJECT_ROOT,
+    detectionHarness({
+      commands: ['claude'],
+    }),
+  );
   assert.deepEqual(detected, ['claudecode']);
 });
 
 test('detectInstalledTools returns codex when only Codex signals are present', () => {
-  const detected = detectInstalledTools(PROJECT_ROOT, detectionHarness({
-    commands: ['codex'],
-  }));
+  const detected = detectInstalledTools(
+    PROJECT_ROOT,
+    detectionHarness({
+      commands: ['codex'],
+    }),
+  );
   assert.deepEqual(detected, ['codex']);
 });
 
 test('detectInstalledTools returns both tools when both signals are present', () => {
-  const detected = detectInstalledTools(PROJECT_ROOT, detectionHarness({
-    commands: ['codex', 'claude'],
-  }));
+  const detected = detectInstalledTools(
+    PROJECT_ROOT,
+    detectionHarness({
+      commands: ['codex', 'claude'],
+    }),
+  );
   assert.deepEqual(detected, ['codex', 'claudecode']);
 });
 

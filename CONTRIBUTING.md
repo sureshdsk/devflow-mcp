@@ -30,12 +30,14 @@ By participating in this project, you agree to maintain a respectful and inclusi
 ### Pull Requests
 
 1. **Fork the repository**
+
    ```bash
    git clone https://github.com/yourusername/devflow-mcp.git
    cd devflow-mcp
    ```
 
 2. **Create a feature branch**
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -46,14 +48,15 @@ By participating in this project, you agree to maintain a respectful and inclusi
    - Update documentation as needed
 
 4. **Test your changes**
+
    ```bash
-   bun install
-   bun typecheck
-   bun lint
-   bun test  # when tests are added
+   npm install
+   npm run typecheck
+   npm run lint
    ```
 
 5. **Commit your changes**
+
    ```bash
    git add .
    git commit -m "feat: add your feature description"
@@ -78,7 +81,6 @@ By participating in this project, you agree to maintain a respectful and inclusi
 
 ### Prerequisites
 
-- Bun v1.0+
 - Node.js 20+
 - Git
 
@@ -90,14 +92,14 @@ git clone https://github.com/YOUR_USERNAME/devflow-mcp.git
 cd devflow-mcp
 
 # Install dependencies
-bun install
+npm install
 
 # Initialize database
-bun run db:init
+npm run db:init
 
 # Start development
-bun dev  # Web UI
-bun run mcp  # MCP server
+npm run dev  # Web UI
+npm run mcp  # MCP server
 ```
 
 ### MCP Server for Local Development
@@ -137,16 +139,28 @@ After changing MCP config, restart your coding tool's session for changes to tak
 ```
 devflow-mcp/
 ├── src/
-│   ├── app/           # Next.js app (web UI)
+│   ├── app/           # Next.js app (web UI) + API routes
 │   ├── components/    # React components
+│   ├── hooks/         # React Query hooks (use-queries, use-websocket)
 │   ├── db/            # Database schema and connection
 │   ├── mcp/           # MCP server implementation
-│   └── lib/           # Utility functions
+│   ├── lib/           # Utility functions (specs, schema, etc.)
+│   └── schemas/       # Bundled spec workflow schemas
+├── devflow/           # Project-level devflow data
+│   ├── specs/         # Spec artifacts (proposal.md, specs.md, etc.)
+│   └── project-config.json  # Project config (default schema, etc.)
 ├── scripts/           # Build and setup scripts
 ├── drizzle/           # Database migrations
 ├── bin/               # CLI entry points
-└── docs/              # Documentation
+└── .claude/           # Claude Code skills and commands
+    ├── skills/        # Skill definitions (df-new, df-continue, etc.)
+    └── commands/      # Slash command definitions
 ```
+
+### Data Storage
+
+- **`~/.devflow/`** — Global data directory (SQLite database at `~/.devflow/devflow.db`). Shared across all projects.
+- **`devflow/`** — Project-level directory for spec artifacts and project config. Committed to git.
 
 ## Code Style Guidelines
 
@@ -166,7 +180,7 @@ devflow-mcp/
 - Follow the "use client" directive pattern
 
 ```tsx
-"use client";
+'use client';
 
 interface MyComponentProps {
   title: string;
@@ -196,15 +210,15 @@ export function MyComponent({ title, onAction }: MyComponentProps) {
 ```typescript
 case "my_tool": {
   const { param } = request.params.arguments as { param: string };
-  
+
   // Validate input
   if (!param) {
     throw new Error("param is required");
   }
-  
+
   // Perform operation
   const result = await db.select()...;
-  
+
   // Return structured response
   return {
     content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
@@ -217,24 +231,29 @@ case "my_tool": {
 ### Manual Testing
 
 1. Test the web UI:
+
    ```bash
-   bun dev
+   npm run dev
    ```
-   - Create projects, features, tasks
+
+   - Create projects and tasks
    - Test drag and drop
-   - Verify real-time updates
+   - Verify real-time updates via WebSocket + polling
 
 2. Test the MCP server:
+
    ```bash
-   bun run mcp
+   npm run mcp
    ```
-   - Use Claude Desktop or Cursor
+
+   - Use Claude Code, Cursor, or any MCP-compatible tool
    - Test each tool
    - Verify error handling
 
 ### Automated Testing (Coming Soon)
 
 We're working on adding:
+
 - Unit tests with Vitest
 - Integration tests for MCP tools
 - E2E tests with Playwright
@@ -272,14 +291,11 @@ async function createTask(projectId: string, title: string) {
 ```bash
 # 1. Update src/db/schema.ts
 # 2. Generate migration
-bun run db:generate
+npm run db:generate
 
 # 3. Test migration
 rm ~/.devflow/devflow.db
-bun run db:init
-
-# 4. Verify schema
-bun run db:studio
+npm run db:init
 ```
 
 ### Migration Guidelines

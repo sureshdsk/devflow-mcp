@@ -1,5 +1,5 @@
-import { WebSocketServer, WebSocket } from "ws";
-import { createConnection } from "net";
+import { WebSocketServer, WebSocket } from 'ws';
+import { createConnection } from 'net';
 
 let wss: WebSocketServer | null = null;
 const clients = new Set<WebSocket>();
@@ -25,7 +25,7 @@ function isPortInUse(port: number): Promise<boolean> {
       client.end();
       resolve(true);
     });
-    client.on("error", () => {
+    client.on('error', () => {
       resolve(false);
     });
   });
@@ -46,28 +46,30 @@ export async function startWebSocketServer(port?: number): Promise<WebSocketServ
   try {
     wss = new WebSocketServer({ port: wsPort });
 
-    wss.on("connection", (ws) => {
+    wss.on('connection', (ws) => {
       clients.add(ws);
       console.log(`[WebSocket] Client connected (total: ${clients.size})`);
 
-      ws.on("message", (data) => {
+      ws.on('message', (data) => {
         try {
           const message = data.toString();
           const parsed = JSON.parse(message);
 
           // Identity handshake: MCP clients announce themselves
-          if (parsed.type === "identify" && parsed.role === "mcp") {
-            const agentName = parsed.agent || "Unknown Agent";
+          if (parsed.type === 'identify' && parsed.role === 'mcp') {
+            const agentName = parsed.agent || 'Unknown Agent';
             const prev = agentClients.get(ws);
             agentClients.set(ws, agentName);
             if (prev !== agentName) {
-              console.log(`[WebSocket] MCP agent identified: ${agentName} (agents: ${agentClients.size})`);
+              console.log(
+                `[WebSocket] MCP agent identified: ${agentName} (agents: ${agentClients.size})`,
+              );
               broadcastAgentList();
             }
             return;
           }
 
-          console.log("[WebSocket] Relaying message:", message.substring(0, 100));
+          console.log('[WebSocket] Relaying message:', message.substring(0, 100));
           // Relay to all non-sender clients (browser UIs)
           clients.forEach((client) => {
             if (client !== ws && client.readyState === WebSocket.OPEN) {
@@ -75,11 +77,11 @@ export async function startWebSocketServer(port?: number): Promise<WebSocketServ
             }
           });
         } catch (error) {
-          console.error("[WebSocket] Error relaying message:", error);
+          console.error('[WebSocket] Error relaying message:', error);
         }
       });
 
-      ws.on("close", () => {
+      ws.on('close', () => {
         const wasAgent = agentClients.has(ws);
         agentClients.delete(ws);
         clients.delete(ws);
@@ -90,18 +92,18 @@ export async function startWebSocketServer(port?: number): Promise<WebSocketServ
         }
       });
 
-      ws.on("error", (error) => {
-        console.error("[WebSocket] Client error:", error);
+      ws.on('error', (error) => {
+        console.error('[WebSocket] Client error:', error);
         agentClients.delete(ws);
         clients.delete(ws);
       });
     });
 
-    wss.on("error", (error: NodeJS.ErrnoException) => {
-      if (error.code === "EADDRINUSE") {
+    wss.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') {
         console.log(`[WebSocket] Port ${wsPort} already in use, skipping`);
       } else {
-        console.error("[WebSocket] Server error:", error);
+        console.error('[WebSocket] Server error:', error);
       }
       wss = null;
     });
@@ -124,7 +126,7 @@ export async function startWebSocketServer(port?: number): Promise<WebSocketServ
 
     console.log(`[WebSocket] Server started on port ${wsPort}`);
   } catch (error) {
-    console.error("[WebSocket] Failed to start server:", error);
+    console.error('[WebSocket] Failed to start server:', error);
     return null;
   }
 
@@ -149,7 +151,7 @@ export function getAgentList(): string[] {
 
 function broadcastAgentList() {
   const agents = getAgentList();
-  const msg = JSON.stringify({ type: "agent_count", count: agents.length, agents });
+  const msg = JSON.stringify({ type: 'agent_count', count: agents.length, agents });
   clients.forEach((client) => {
     if (!agentClients.has(client) && client.readyState === WebSocket.OPEN) {
       client.send(msg);

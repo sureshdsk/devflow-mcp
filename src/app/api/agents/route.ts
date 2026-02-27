@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { getAgentCount, getAgentList } from "@/websocket/server";
+import { NextResponse } from 'next/server';
+import { getAgentCount, getAgentList } from '@/websocket/server';
 
 export async function GET() {
   const agents = getAgentList();

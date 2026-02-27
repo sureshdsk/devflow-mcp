@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -9,167 +9,89 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-} from "@dnd-kit/core";
-import { Task, Project } from "@/db/schema";
-import { KanbanColumn } from "./kanban-column";
-import { TaskCard } from "./task-card";
-import { ChevronDown, Trash2 } from "lucide-react";
-import { SpecKanbanColumn } from "./specs/spec-kanban-column";
-import { SpecModal } from "./specs/spec-modal";
+} from '@dnd-kit/core';
+import { Task, Project } from '@/db/schema';
+import { KanbanColumn } from './kanban-column';
+import { TaskCard } from './task-card';
+import { ChevronDown, Trash2 } from 'lucide-react';
+import { SpecKanbanColumn } from './specs/spec-kanban-column';
+import { SpecModal } from './specs/spec-modal';
+import { useProjects, useTasks, useInvalidate } from '@/hooks/use-queries';
+import { useWebSocket } from '@/hooks/use-websocket';
 
-type TaskStatus = "backlog" | "todo" | "in_progress" | "interrupted" | "done";
+type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'interrupted' | 'done';
 
 const COLUMNS: { id: TaskStatus; title: string; color: string }[] = [
-  { id: "backlog", title: "Backlog", color: "bg-gray-200" },
-  { id: "todo", title: "To Do", color: "bg-[--color-primary]" },
-  { id: "in_progress", title: "In Progress", color: "bg-[--color-secondary]" },
-  { id: "done", title: "Done", color: "bg-[--color-success]" },
+  { id: 'backlog', title: 'Backlog', color: 'bg-gray-200' },
+  { id: 'todo', title: 'To Do', color: 'bg-[--color-primary]' },
+  { id: 'in_progress', title: 'In Progress', color: 'bg-[--color-secondary]' },
+  { id: 'done', title: 'Done', color: 'bg-[--color-success]' },
 ];
 
 const COLUMN_IDS: Set<string> = new Set(COLUMNS.map((c) => c.id));
 
-const STORAGE_KEY = "devflow-selected-project";
+const STORAGE_KEY = 'devflow-selected-project';
 
 export function KanbanBoard() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const { data: projects = [], isLoading: projectsLoading } = useProjects();
+  const { data: tasks = [], isLoading: tasksLoading } = useTasks();
+  const { invalidateTasks, invalidateProjects } = useInvalidate();
+  useWebSocket();
+
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedSpecName, setSelectedSpecName] = useState<string | null>(null);
   const [specPanelOpen, setSpecPanelOpen] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-
-  const selectedProjectIdRef = useRef<string | null>(null);
-  selectedProjectIdRef.current = selectedProjectId;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
       },
-    })
+    }),
   );
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      setSelectedProjectId(saved === "all" ? null : saved);
+      setSelectedProjectId(saved === 'all' ? null : saved);
     }
     setIsInitialized(true);
   }, []);
 
+  // Auto-select project if needed
+  useEffect(() => {
+    if (!isInitialized || projectsLoading) return;
+    if (selectedProjectId) {
+      const exists = projects.some((p: Project) => p.id === selectedProjectId);
+      if (!exists && projects.length > 0) {
+        selectProject(projects[0].id);
+      }
+    } else if (!localStorage.getItem(STORAGE_KEY) && projects.length > 0) {
+      selectProject(projects[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialized, projectsLoading, projects]);
+
   const selectProject = useCallback((projectId: string | null) => {
     setSelectedProjectId(projectId);
     setSelectedSpecName(null);
-    localStorage.setItem(STORAGE_KEY, projectId || "all");
+    localStorage.setItem(STORAGE_KEY, projectId || 'all');
     setIsDropdownOpen(false);
   }, []);
-
-  useEffect(() => {
-    fetchProjects();
-    fetchTasks();
-
-    const pollInterval = setInterval(() => {
-      fetchTasks();
-      fetchProjects();
-    }, 5000);
-
-    return () => clearInterval(pollInterval);
-  }, []);
-
-  useEffect(() => {
-    let ws: WebSocket | null = null;
-    let reconnectTimeout: NodeJS.Timeout;
-    let isUnmounted = false;
-
-    function connect() {
-      if (isUnmounted) return;
-
-      try {
-        ws = new WebSocket(`ws://localhost:${process.env.NEXT_PUBLIC_DEVFLOW_WS_PORT || "3001"}`);
-
-        ws.onopen = () => {
-          console.log("WebSocket connected");
-        };
-
-        ws.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          if (data.type === "agent_count") return;
-          if (data.type?.includes("project")) {
-            fetchProjects();
-          }
-          fetchTasks();
-        };
-
-        ws.onerror = () => {};
-
-        ws.onclose = () => {
-          if (!isUnmounted) {
-            reconnectTimeout = setTimeout(connect, 3000);
-          }
-        };
-      } catch {
-        if (!isUnmounted) {
-          reconnectTimeout = setTimeout(connect, 3000);
-        }
-      }
-    }
-
-    connect();
-
-    return () => {
-      isUnmounted = true;
-      clearTimeout(reconnectTimeout);
-      ws?.close();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function fetchProjects() {
-    try {
-      const response = await fetch("/api/projects");
-      const data = await response.json();
-      setProjects(data);
-
-      if (isInitialized && selectedProjectId) {
-        const exists = data.some((p: Project) => p.id === selectedProjectId);
-        if (!exists && data.length > 0) {
-          selectProject(data[0].id);
-        }
-      } else if (isInitialized && !selectedProjectId && !localStorage.getItem(STORAGE_KEY)) {
-        if (data.length > 0) {
-          selectProject(data[0].id);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to fetch projects:", error);
-    }
-  }
-
-  async function fetchTasks() {
-    try {
-      const response = await fetch("/api/tasks");
-      const data = await response.json();
-      setTasks(data);
-    } catch (error) {
-      console.error("Failed to fetch tasks:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }
 
   async function updateTaskStatus(taskId: string, newStatus: TaskStatus) {
     try {
       await fetch(`/api/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
-      await fetchTasks();
+      invalidateTasks();
     } catch (error) {
-      console.error("Failed to update task:", error);
+      console.error('Failed to update task:', error);
     }
   }
 
@@ -205,8 +127,8 @@ export function KanbanBoard() {
   function getTasksByStatus(status: TaskStatus) {
     return tasks
       .filter((task) => {
-        if (task.status === "interrupted") {
-          return status === "in_progress";
+        if (task.status === 'interrupted') {
+          return status === 'in_progress';
         }
         return task.status === status;
       })
@@ -216,28 +138,31 @@ export function KanbanBoard() {
 
   async function deleteProject(projectId: string, projectName: string) {
     const taskCount = tasks.filter((t) => t.projectId === projectId).length;
-    const confirmMessage = taskCount > 0
-      ? `Delete "${projectName}" and its ${taskCount} task${taskCount === 1 ? "" : "s"}? This cannot be undone.`
-      : `Delete "${projectName}"? This cannot be undone.`;
+    const confirmMessage =
+      taskCount > 0
+        ? `Delete "${projectName}" and its ${taskCount} task${taskCount === 1 ? '' : 's'}? This cannot be undone.`
+        : `Delete "${projectName}"? This cannot be undone.`;
 
     if (!confirm(confirmMessage)) return;
 
     try {
       const response = await fetch(`/api/projects/${projectId}`, {
-        method: "DELETE",
+        method: 'DELETE',
       });
 
       if (response.ok) {
         if (selectedProjectId === projectId) {
           selectProject(null);
         }
-        await fetchProjects();
-        await fetchTasks();
+        invalidateProjects();
+        invalidateTasks();
       }
     } catch (error) {
-      console.error("Failed to delete project:", error);
+      console.error('Failed to delete project:', error);
     }
   }
+
+  const isLoading = tasksLoading && !tasks.length;
 
   if (isLoading) {
     return (
@@ -264,7 +189,7 @@ export function KanbanBoard() {
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-4">
                 <h1 className="text-3xl font-black uppercase tracking-tight">DevFlow</h1>
-                </div>
+              </div>
 
               {/* Project Chooser Dropdown */}
               <div className="relative">
@@ -273,24 +198,23 @@ export function KanbanBoard() {
                   className="flex items-center gap-2 px-4 py-2 bg-[--color-primary] border-4 border-black font-bold text-sm uppercase hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 >
                   <span className="max-w-[200px] truncate">
-                    {selectedProject ? selectedProject.name : "All Projects"}
+                    {selectedProject ? selectedProject.name : 'All Projects'}
                   </span>
                   <span className="text-xs opacity-70">({totalTasks})</span>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+                  />
                 </button>
 
                 {isDropdownOpen && (
                   <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setIsDropdownOpen(false)}
-                    />
+                    <div className="fixed inset-0 z-10" onClick={() => setIsDropdownOpen(false)} />
 
                     <div className="absolute top-full left-0 mt-2 w-64 bg-white border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] z-20 max-h-80 overflow-y-auto">
                       <button
                         onClick={() => selectProject(null)}
                         className={`w-full px-4 py-3 text-left font-bold text-sm uppercase border-b-2 border-black hover:bg-gray-100 flex items-center justify-between ${
-                          !selectedProjectId ? "bg-black text-white hover:bg-gray-800" : ""
+                          !selectedProjectId ? 'bg-black text-white hover:bg-gray-800' : ''
                         }`}
                       >
                         <span>All Projects</span>
@@ -298,12 +222,16 @@ export function KanbanBoard() {
                       </button>
 
                       {projects.map((project) => {
-                        const projectTaskCount = tasks.filter((t) => t.projectId === project.id).length;
+                        const projectTaskCount = tasks.filter(
+                          (t) => t.projectId === project.id,
+                        ).length;
                         return (
                           <div
                             key={project.id}
                             className={`flex items-center border-b border-gray-200 last:border-b-0 ${
-                              selectedProjectId === project.id ? "bg-[--color-primary]" : "hover:bg-gray-100"
+                              selectedProjectId === project.id
+                                ? 'bg-[--color-primary]'
+                                : 'hover:bg-gray-100'
                             }`}
                           >
                             <button
@@ -328,9 +256,7 @@ export function KanbanBoard() {
                       })}
 
                       {projects.length === 0 && (
-                        <div className="px-4 py-3 text-sm text-gray-500">
-                          No projects yet
-                        </div>
+                        <div className="px-4 py-3 text-sm text-gray-500">No projects yet</div>
                       )}
                     </div>
                   </>
@@ -353,8 +279,10 @@ export function KanbanBoard() {
               )}
             </div>
             <div className="flex items-center gap-4 text-sm font-bold">
-              <span>{projectTasks.filter((t) => t.status === "in_progress").length} in progress</span>
-              <span>{projectTasks.filter((t) => t.status === "done").length} done</span>
+              <span>
+                {projectTasks.filter((t) => t.status === 'in_progress').length} in progress
+              </span>
+              <span>{projectTasks.filter((t) => t.status === 'done').length} done</span>
             </div>
           </div>
         </div>
@@ -376,11 +304,7 @@ export function KanbanBoard() {
 
         {/* Kanban columns */}
         <main className="flex-1 min-h-0 overflow-hidden">
-          <DndContext
-            sensors={sensors}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
+          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="h-full px-6 py-6">
               <div className="grid grid-cols-4 gap-6 h-full min-h-0">
                 {COLUMNS.map((column) => (
@@ -391,7 +315,7 @@ export function KanbanBoard() {
                     color={column.color}
                     tasks={getTasksByStatus(column.id)}
                     features={[]}
-                    onRefresh={fetchTasks}
+                    onRefresh={() => invalidateTasks()}
                   />
                 ))}
               </div>
@@ -404,7 +328,7 @@ export function KanbanBoard() {
                     task={activeTask}
                     feature={undefined}
                     features={[]}
-                    onRefresh={fetchTasks}
+                    onRefresh={() => invalidateTasks()}
                   />
                 </div>
               ) : null}
@@ -414,10 +338,7 @@ export function KanbanBoard() {
 
         {/* Spec modal */}
         {specPanelOpen && selectedSpecName && (
-          <SpecModal
-            specName={selectedSpecName}
-            onClose={() => setSpecPanelOpen(false)}
-          />
+          <SpecModal specName={selectedSpecName} onClose={() => setSpecPanelOpen(false)} />
         )}
       </div>
     </div>

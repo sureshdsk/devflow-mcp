@@ -1,11 +1,8 @@
-import { NextResponse } from "next/server";
-import { getDb, schema } from "@/db";
-import { eq } from "drizzle-orm";
+import { NextResponse } from 'next/server';
+import { getDb, schema } from '@/db';
+import { eq } from 'drizzle-orm';
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const db = await getDb();
@@ -17,7 +14,7 @@ export async function DELETE(
       .limit(1);
 
     if (project.length === 0) {
-      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
     const projectTasks = await db
@@ -34,18 +31,15 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete project error:", error);
+    console.error('Delete project error:', error);
     return NextResponse.json(
-      { error: "Failed to delete project", details: String(error) },
-      { status: 500 }
+      { error: 'Failed to delete project', details: String(error) },
+      { status: 500 },
     );
   }
 }
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await request.json();
@@ -67,9 +61,6 @@ export async function PATCH(
 
     return NextResponse.json(updatedProject[0]);
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to update project" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update project' }, { status: 500 });
   }
 }

@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useDroppable } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Task } from "@/db/schema";
-import { TaskCard } from "./task-card";
-import { cn } from "@/lib/utils";
+import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { Task } from '@/db/schema';
+import { TaskCard } from './task-card';
+import { cn } from '@/lib/utils';
 
 interface KanbanColumnProps {
   id: string;
@@ -20,20 +20,18 @@ export function KanbanColumn({ id, title, color, tasks, onRefresh }: KanbanColum
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className={cn("px-4 py-3 border-3 border-black border-b-0", color)}>
+      <div className={cn('px-4 py-3 border-3 border-black border-b-0', color)}>
         <h2 className="font-black uppercase tracking-wide text-black flex items-center justify-between">
           <span>{title}</span>
-          <span className="text-sm font-bold bg-black text-white px-2 py-1">
-            {tasks.length}
-          </span>
+          <span className="text-sm font-bold bg-black text-white px-2 py-1">{tasks.length}</span>
         </h2>
       </div>
 
       <div
         ref={setNodeRef}
         className={cn(
-          "flex-1 overflow-y-auto p-4 space-y-3 bg-white border-3 border-black transition-colors",
-          isOver && "bg-gray-100"
+          'flex-1 overflow-y-auto p-4 space-y-3 bg-white border-3 border-black transition-colors',
+          isOver && 'bg-gray-100',
         )}
       >
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>

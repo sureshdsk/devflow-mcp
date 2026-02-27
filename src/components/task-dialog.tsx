@@ -1,17 +1,12 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { Task } from "@/db/schema";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/dialog";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
-import { User, Clock } from "lucide-react";
-import { MarkdownPreview } from "./markdown-preview";
+import { useState, useEffect } from 'react';
+import { Task } from '@/db/schema';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import { User, Clock } from 'lucide-react';
+import { MarkdownPreview } from './markdown-preview';
 
 interface TaskDialogProps {
   task: Task;
@@ -52,14 +47,14 @@ export function TaskDialog({ task, open, onOpenChange, onRefresh }: TaskDialogPr
     setIsSaving(true);
     try {
       await fetch(`/api/tasks/${task.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, priority, status }),
       });
       onRefresh();
       onOpenChange(false);
     } catch (error) {
-      console.error("Failed to update task:", error);
+      console.error('Failed to update task:', error);
     } finally {
       setIsSaving(false);
     }
@@ -75,9 +70,7 @@ export function TaskDialog({ task, open, onOpenChange, onRefresh }: TaskDialogPr
         <div className="space-y-4">
           {/* Title */}
           <div>
-            <label className="text-xs font-bold uppercase tracking-wide mb-2 block">
-              Title
-            </label>
+            <label className="text-xs font-bold uppercase tracking-wide mb-2 block">Title</label>
             <input
               type="text"
               value={title}
@@ -106,9 +99,7 @@ export function TaskDialog({ task, open, onOpenChange, onRefresh }: TaskDialogPr
             </div>
 
             <div>
-              <label className="text-xs font-bold uppercase tracking-wide mb-2 block">
-                Status
-              </label>
+              <label className="text-xs font-bold uppercase tracking-wide mb-2 block">Status</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
@@ -126,9 +117,7 @@ export function TaskDialog({ task, open, onOpenChange, onRefresh }: TaskDialogPr
           {/* Spec Name */}
           {task.specName && (
             <div>
-              <label className="text-xs font-bold uppercase tracking-wide mb-2 block">
-                Spec
-              </label>
+              <label className="text-xs font-bold uppercase tracking-wide mb-2 block">Spec</label>
               <div className="px-4 py-2 border-2 border-black bg-gray-50 font-mono text-sm">
                 {task.specName}
               </div>
@@ -169,15 +158,11 @@ export function TaskDialog({ task, open, onOpenChange, onRefresh }: TaskDialogPr
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t-3 border-black">
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSaving}
-            >
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save Changes"}
+              {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </div>

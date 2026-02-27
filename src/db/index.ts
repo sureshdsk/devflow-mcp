@@ -1,12 +1,12 @@
-import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
-import * as schema from "./schema";
-import { mkdirSync } from "fs";
-import { join } from "path";
-import { homedir } from "os";
+import { createClient } from '@libsql/client';
+import { drizzle } from 'drizzle-orm/libsql';
+import * as schema from './schema';
+import { mkdirSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
 
-const DB_DIR = join(homedir(), ".devflow");
-const DB_PATH = join(DB_DIR, "devflow.db");
+const DB_DIR = join(homedir(), '.devflow');
+const DB_PATH = join(DB_DIR, 'devflow.db');
 
 // Ensure the directory exists
 function ensureDbDir() {
@@ -28,8 +28,8 @@ export async function getDb() {
     url: `file:${DB_PATH}`,
   });
 
-  await client.execute("PRAGMA journal_mode = WAL");
-  await client.execute("PRAGMA foreign_keys = ON");
+  await client.execute('PRAGMA journal_mode = WAL');
+  await client.execute('PRAGMA foreign_keys = ON');
 
   dbInstance = drizzle(client, { schema });
 

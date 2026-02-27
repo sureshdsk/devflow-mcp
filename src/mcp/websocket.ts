@@ -1,4 +1,4 @@
-import WebSocket from "ws";
+import WebSocket from 'ws';
 
 let client: WebSocket | null = null;
 let reconnectAttempts = 0;
@@ -6,11 +6,11 @@ let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 let isConnecting = false;
 
 function detectAgentName(): string {
-  if (process.env.CLAUDECODE || process.env.CLAUDE_CODE_ENTRYPOINT) return "Claude Code";
-  if (process.env.CODEX) return "Codex";
-  if (process.env.CURSOR_TRACE_ID || process.env.CURSOR_CHANNEL) return "Cursor";
-  if (process.env.WINDSURF_PLUGIN_VERSION) return "Windsurf";
-  return ""; // empty = unknown, server.ts will re-identify after MCP initialize
+  if (process.env.CLAUDECODE || process.env.CLAUDE_CODE_ENTRYPOINT) return 'Claude Code';
+  if (process.env.CODEX) return 'Codex';
+  if (process.env.CURSOR_TRACE_ID || process.env.CURSOR_CHANNEL) return 'Cursor';
+  if (process.env.WINDSURF_PLUGIN_VERSION) return 'Windsurf';
+  return ''; // empty = unknown, server.ts will re-identify after MCP initialize
 }
 
 const MAX_RECONNECT_DELAY = 30000; // 30 seconds
@@ -32,7 +32,7 @@ function getReconnectDelay(): number {
   // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (max)
   const delay = Math.min(
     INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttempts),
-    MAX_RECONNECT_DELAY
+    MAX_RECONNECT_DELAY,
   );
   return delay;
 }
@@ -62,42 +62,40 @@ function connectToServer() {
   try {
     client = new WebSocket(url);
 
-    client.on("open", () => {
+    client.on('open', () => {
       isConnecting = false;
       reconnectAttempts = 0;
       console.error(`[MCP WebSocket] Connected to server at ${url}`);
       // Announce this connection as an MCP agent with detected name
-      client!.send(JSON.stringify({ type: "identify", role: "mcp", agent: detectAgentName() }));
+      client!.send(JSON.stringify({ type: 'identify', role: 'mcp', agent: detectAgentName() }));
     });
 
-    client.on("close", () => {
+    client.on('close', () => {
       isConnecting = false;
       client = null;
       // Only log and reconnect if we had been connected (reconnectAttempts > 0 means we're already trying)
       if (reconnectAttempts === 0) {
-        console.error("[MCP WebSocket] Disconnected from server, will reconnect");
+        console.error('[MCP WebSocket] Disconnected from server, will reconnect');
       }
       scheduleReconnect();
     });
 
-    client.on("error", (error: Error & { code?: string }) => {
+    client.on('error', (error: Error & { code?: string }) => {
       isConnecting = false;
       // Only log connection refused once, not on every retry
-      if (error.code === "ECONNREFUSED") {
+      if (error.code === 'ECONNREFUSED') {
         if (reconnectAttempts === 0) {
-          console.error(
-            `[MCP WebSocket] Server not available at ${url}, will retry in background`
-          );
+          console.error(`[MCP WebSocket] Server not available at ${url}, will retry in background`);
         }
       } else {
-        console.error("[MCP WebSocket] Error:", error.message);
+        console.error('[MCP WebSocket] Error:', error.message);
       }
       client = null;
       scheduleReconnect();
     });
   } catch (error) {
     isConnecting = false;
-    console.error("[MCP WebSocket] Failed to create connection:", error);
+    console.error('[MCP WebSocket] Failed to create connection:', error);
     scheduleReconnect();
   }
 }
@@ -105,16 +103,19 @@ function connectToServer() {
 export function broadcastUpdate(data: unknown) {
   if (!client || client.readyState !== WebSocket.OPEN) {
     // Server not available, silently fail - UI has polling fallback
-    console.error("[MCP WebSocket] Not connected, skipping broadcast:", JSON.stringify(data).substring(0, 100));
+    console.error(
+      '[MCP WebSocket] Not connected, skipping broadcast:',
+      JSON.stringify(data).substring(0, 100),
+    );
     return;
   }
 
   try {
     const message = JSON.stringify(data);
-    console.error("[MCP WebSocket] Broadcasting:", message.substring(0, 100));
+    console.error('[MCP WebSocket] Broadcasting:', message.substring(0, 100));
     client.send(message);
   } catch (error) {
-    console.error("[MCP WebSocket] Failed to send message:", error);
+    console.error('[MCP WebSocket] Failed to send message:', error);
   }
 }
 
@@ -134,6 +135,6 @@ export function disconnect() {
 }
 
 // Connect lazily — skip during build
-if (process.env.NEXT_PHASE !== "phase-production-build") {
+if (process.env.NEXT_PHASE !== 'phase-production-build') {
   connectToServer();
 }

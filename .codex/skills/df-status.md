@@ -1,4 +1,5 @@
 <!-- DEVFLOW:BEGIN codex:skill:df-status -->
+
 # Skill: /df:status
 
 Use this skill to show the current DAG state for a spec in Codex.
@@ -11,4 +12,4 @@ Use this skill to show the current DAG state for a spec in Codex.
    - Each artifact: name, state (blocked/ready/in_review/done), approved by/when if done
    - Current bottleneck: which artifact needs action and what that action is
    - Suggested next command: /df:continue, /df:promote, or /df:develop
-<!-- DEVFLOW:END codex:skill:df-status -->
+   <!-- DEVFLOW:END codex:skill:df-status -->

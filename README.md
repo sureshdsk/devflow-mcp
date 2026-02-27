@@ -16,8 +16,8 @@ Agents use MCP tools to write artifacts, check in/out of tasks, and keep executi
 
 ## Requirements
 
-- Node.js 20+ (web UI + CLI)
-- Bun 1.0+ (required for `devflow mcp`)
+- Node.js 20+
+- Bun 1.0+ (required for MCP server: `devflow mcp`)
 
 ## Install
 
@@ -46,11 +46,13 @@ Open http://localhost:3000.
 ### 3. Configure your AI tool
 
 **Claude Code CLI**
+
 ```bash
 claude mcp add devflow -- devflow mcp
 ```
 
 **Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`)
+
 ```json
 {
   "mcpServers": {
@@ -63,6 +65,7 @@ claude mcp add devflow -- devflow mcp
 ```
 
 **Codex (`.codex/config.toml`)**
+
 ```toml
 [mcp_servers.devflow]
 command = "devflow"
@@ -70,6 +73,7 @@ args = ["mcp"]
 ```
 
 **Cursor**
+
 - Settings -> Features -> MCP
 - Add server command: `devflow mcp`
 
@@ -99,6 +103,7 @@ proposal -> specs + design -> tasks -> promote_spec -> Kanban tasks
 ```
 
 Rules:
+
 - Downstream artifacts stay blocked until prerequisites are approved.
 - Editing approved artifacts revokes approval.
 - `promote_spec` only works after `tasks` is approved.
@@ -110,6 +115,7 @@ backlog -> todo -> in_progress -> done
 ```
 
 Typical agent flow:
+
 1. `check_in`
 2. implement + `log_activity`
 3. `check_out`
@@ -183,14 +189,130 @@ Use case: All work is complete and you want to move the spec out of active flow.
 Spec: improve-spec-validation-reporting
 ```
 
+## Custom Schemas
+
+DevFlow ships with bundled schemas (`spec-driven`, `backend-api`, `frontend-product`, `data-engineering`), but you can create your own to match your team's workflow.
+
+### How schemas work
+
+A schema defines the **artifact DAG** — which documents exist, what order they follow, and what templates agents use to generate them. The bundled `spec-driven` schema looks like this:
+
+```yaml
+name: spec-driven
+version: 1
+artifacts:
+  - id: proposal
+    generates: proposal.md
+    description: Change intent and scope
+    template: proposal.md
+    requires: []
+  - id: specs
+    generates: specs.md
+    description: Requirements and scenarios
+    template: specs.md
+    requires: [proposal]
+  - id: design
+    generates: design.md
+    description: Technical approach
+    template: design.md
+    requires: [proposal]
+  - id: tasks
+    generates: tasks.md
+    description: Implementation tasks
+    template: tasks.md
+    requires: [specs, design]
+qualityRules:
+  requireRfc2119: true
+  minScenariosPerRequirement: 1
+apply:
+  requires: [tasks]
+```
+
+The `requires` field creates the approval DAG — an artifact stays blocked until all its prerequisites are approved.
+
+### Creating a custom schema
+
+Place your schema in `devflow/schemas/<schema-name>/`:
+
+```
+devflow/
+├── schemas/
+│   └── my-workflow/
+│       ├── schema.yaml
+│       └── templates/
+│           ├── rfc.md
+│           ├── adr.md
+│           └── tasks.md
+└── specs/
+```
+
+**1. Define `schema.yaml`:**
+
+```yaml
+name: my-workflow
+version: 1
+artifacts:
+  - id: rfc
+    generates: rfc.md
+    description: Request for comments
+    template: rfc.md
+    requires: []
+  - id: adr
+    generates: adr.md
+    description: Architecture decision record
+    template: adr.md
+    requires: [rfc]
+  - id: tasks
+    generates: tasks.md
+    description: Implementation tasks
+    template: tasks.md
+    requires: [adr]
+apply:
+  requires: [tasks]
+```
+
+**2. Add templates** for each artifact in `templates/`. These are markdown files that agents use as starting points:
+
+```markdown
+# RFC: [Title]
+
+## Context
+
+<!-- What is the background? -->
+
+## Decision
+
+<!-- What are we proposing? -->
+
+## Consequences
+
+<!-- What are the trade-offs? -->
+```
+
+**3. Use it when creating a spec:**
+
+```bash
+# Via MCP tool
+create_spec(name: "my-feature", title: "My Feature", projectId: "...", schema: "my-workflow")
+
+# Or set as project default during init
+devflow init --schema my-workflow
+```
+
+### Key rules
+
+- The schema `name` in `schema.yaml` must be unique — it cannot conflict with bundled schema names.
+- The last artifact should be `tasks` with `## Task: <title>` headings (required for `promote_spec`).
+- Project-local templates in `devflow/schemas/` take priority over bundled templates with the same name.
+
 ## MCP Tools
 
-| Category | Tools |
-|----------|-------|
-| Projects | `list_projects`, `create_project`, `get_project`, `update_project`, `get_or_create_project` |
-| Specs | `create_spec`, `list_specs`, `get_spec`, `get_spec_status`, `write_artifact`, `get_artifact`, `get_artifact_template`, `approve_artifact`, `draft_artifact`, `validate_spec`, `promote_spec`, `archive_spec` |
-| Tasks | `list_tasks`, `get_task`, `create_task`, `create_tasks_bulk`, `update_task` |
-| Agent | `check_in`, `check_out`, `log_activity`, `get_activity_log` |
+| Category | Tools                                                                                                                                                                                                        |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Projects | `list_projects`, `create_project`, `get_project`, `update_project`, `get_or_create_project`                                                                                                                  |
+| Specs    | `create_spec`, `list_specs`, `get_spec`, `get_spec_status`, `write_artifact`, `get_artifact`, `get_artifact_template`, `approve_artifact`, `draft_artifact`, `validate_spec`, `promote_spec`, `archive_spec` |
+| Tasks    | `list_tasks`, `get_task`, `create_task`, `create_tasks_bulk`, `update_task`                                                                                                                                  |
+| Agent    | `check_in`, `check_out`, `log_activity`, `get_activity_log`                                                                                                                                                  |
 
 ## Architecture
 
@@ -209,14 +331,15 @@ Spec: improve-spec-validation-reporting
                 │                              │
                 ▼                              ▼
 ┌───────────────────────────────┐    ┌──────────────────────────────────┐
-│ Spec Files (git-tracked)      │    │ SQLite/libSQL DB                │
-│ ./devflow/specs/<spec-name>/  │    │ ~/.devflow/devflow.db           │
-│ - proposal.md                 │    │ - projects                       │
-│ - specs.md                    │    │ - tasks (promoted + MCP updates) │
-│ - design.md                   │    │ - agent_activity                 │
-│ - tasks.md                    │    └──────────────────────────────────┘
-│ - .approvals.json             │
-│ - .meta.json                  │
+│ devflow/ (git-tracked)         │    │ SQLite/libSQL DB                │
+│ ├─ project-config.json        │    │ ~/.devflow/devflow.db           │
+│ └─ specs/<spec-name>/         │    │ - projects                       │
+│    - proposal.md              │    │ - tasks (promoted + MCP updates) │
+│    - specs.md                 │    │ - agent_activity                 │
+│    - design.md                │    └──────────────────────────────────┘
+│    - tasks.md                 │
+│    - .approvals.json          │
+│    - .meta.json               │
 └───────────────────────────────┘
                 │
                 │ broadcastUpdate() for:
@@ -242,25 +365,25 @@ Spec: improve-spec-validation-reporting
 ```bash
 git clone https://github.com/sureshdsk/devflow-mcp.git
 cd devflow-mcp
-bun install
-bun dev        # UI dev server
-bun run mcp    # MCP server
-bun typecheck
-bun lint
+npm install
+npm run dev        # UI dev server
+npm run mcp        # MCP server
+npm run typecheck
+npm run lint
 ```
 
 ## Local Package Testing
 
 ```bash
-bun run build
-bun install -g .
+npm run build
+npm install -g .
 devflow --help
 ```
 
 Restore published version:
 
 ```bash
-bun install -g @sureshdsk/devflow-mcp
+npm install -g @sureshdsk/devflow-mcp
 ```
 
 ## Documentation
@@ -270,7 +393,10 @@ bun install -g @sureshdsk/devflow-mcp
 
 ## Credits
 
-Special thanks to [OpenSpec](https://github.com/Fission-AI/OpenSpec/) for this amazing tool that inspired this project.
+Inspired by:
+
+- [OpenSpec](https://github.com/Fission-AI/OpenSpec/) — spec-driven development workflow
+- [Spec Kit](https://github.github.com/spec-kit/) — structured specification tooling
 
 ## License
 

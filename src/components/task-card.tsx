@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { Task } from "@/db/schema";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
-import { cn } from "@/lib/utils";
-import { GripVertical, User, FileText, Trash2, AlertTriangle } from "lucide-react";
-import { TaskDialog } from "./task-dialog";
+import { useState } from 'react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Task } from '@/db/schema';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { cn } from '@/lib/utils';
+import { GripVertical, User, FileText, Trash2, AlertTriangle } from 'lucide-react';
+import { TaskDialog } from './task-dialog';
 
 interface TaskCardProps {
   task: Task;
@@ -19,22 +19,17 @@ interface TaskCardProps {
 }
 
 const priorityColors = {
-  low: "bg-[--color-primary] text-black",
-  medium: "bg-[--color-secondary] text-black",
-  high: "bg-orange-300 text-black",
-  urgent: "bg-[--color-accent] text-black",
+  low: 'bg-[--color-primary] text-black',
+  medium: 'bg-[--color-secondary] text-black',
+  high: 'bg-orange-300 text-black',
+  urgent: 'bg-[--color-accent] text-black',
 };
 
 export function TaskCard({ task, onRefresh }: TaskCardProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: task.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -43,12 +38,12 @@ export function TaskCard({ task, onRefresh }: TaskCardProps) {
 
   async function handleDelete(e: React.MouseEvent) {
     e.stopPropagation();
-    if (confirm("Are you sure you want to delete this task?")) {
+    if (confirm('Are you sure you want to delete this task?')) {
       try {
-        await fetch(`/api/tasks/${task.id}`, { method: "DELETE" });
+        await fetch(`/api/tasks/${task.id}`, { method: 'DELETE' });
         onRefresh();
       } catch (error) {
-        console.error("Failed to delete task:", error);
+        console.error('Failed to delete task:', error);
       }
     }
   }
@@ -58,24 +53,19 @@ export function TaskCard({ task, onRefresh }: TaskCardProps) {
       <div
         ref={setNodeRef}
         style={style}
-        className={cn(
-          "cursor-pointer transition-opacity",
-          isDragging && "opacity-50"
-        )}
+        className={cn('cursor-pointer transition-opacity', isDragging && 'opacity-50')}
       >
         <Card
           className={cn(
-            "hover:translate-x-0.5 hover:translate-y-0.5 transition-transform cursor-pointer",
-            task.status === "interrupted" && "border-amber-500 bg-amber-50"
+            'hover:translate-x-0.5 hover:translate-y-0.5 transition-transform cursor-pointer',
+            task.status === 'interrupted' && 'border-amber-500 bg-amber-50',
           )}
           onClick={() => setIsDialogOpen(true)}
         >
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <CardTitle className="text-sm line-clamp-2">
-                  {task.title}
-                </CardTitle>
+                <CardTitle className="text-sm line-clamp-2">{task.title}</CardTitle>
               </div>
               <div className="flex items-center gap-1">
                 <Button
@@ -102,8 +92,11 @@ export function TaskCard({ task, onRefresh }: TaskCardProps) {
 
           <CardContent className="space-y-2">
             <div className="flex flex-wrap gap-2">
-              {task.status === "interrupted" && (
-                <Badge variant="outline" className="text-xs gap-1 border-amber-500 text-amber-700 bg-amber-50">
+              {task.status === 'interrupted' && (
+                <Badge
+                  variant="outline"
+                  className="text-xs gap-1 border-amber-500 text-amber-700 bg-amber-50"
+                >
                   <AlertTriangle className="h-3 w-3" />
                   Interrupted
                 </Badge>
@@ -117,7 +110,10 @@ export function TaskCard({ task, onRefresh }: TaskCardProps) {
 
               <Badge
                 variant="outline"
-                className={cn("text-xs", priorityColors[task.priority as keyof typeof priorityColors])}
+                className={cn(
+                  'text-xs',
+                  priorityColors[task.priority as keyof typeof priorityColors],
+                )}
               >
                 {task.priority}
               </Badge>

@@ -48,11 +48,13 @@ Web UI (Next.js, src/app)
 ## Core Components
 
 1. MCP server (`src/mcp/server.ts`)
+
 - stdio MCP server using `@modelcontextprotocol/sdk`
 - Project/spec/task/agent tools
 - Uses `src/db/index.ts` with `@libsql/client`
 
 2. Web UI (`src/app/`)
+
 - Next.js App Router, React 19
 - `/` Kanban board (drag/drop)
 - `/specs` read-only spec list
@@ -60,11 +62,13 @@ Web UI (Next.js, src/app)
 - Real-time updates via WebSocket (`localhost:3001`)
 
 3. Specs on disk (`./devflow/specs/`)
+
 - Source of truth for planning artifacts
 - Per-spec files: `proposal.md`, `specs.md`, `design.md`, `tasks.md`, `.approvals.json`, `.meta.json`
 - Approval state stores SHA256 content hash; editing approved artifacts auto-revokes approval
 
 4. Database (`~/.devflow/devflow.db`)
+
 - libSQL/SQLite + WAL mode
 - Drizzle ORM tables: `projects`, `tasks`, `agent_activity`
 - Promoted tasks reference spec by name (`specName` text field)
@@ -117,12 +121,12 @@ proposal -> (specs, design) -> tasks -> [Promote to Kanban]
 
 ## MCP Tool Categories
 
-| Category | Tools |
-|----------|-------|
-| Projects | `list_projects`, `create_project`, `get_project`, `update_project`, `get_or_create_project` |
-| Specs | `create_spec`, `list_specs`, `get_spec`, `get_spec_status`, `write_artifact`, `get_artifact`, `get_artifact_template`, `approve_artifact`, `draft_artifact`, `validate_spec`, `promote_spec`, `archive_spec` |
-| Tasks | `list_tasks`, `get_task`, `create_task`, `create_tasks_bulk`, `update_task` |
-| Agent | `check_in`, `check_out`, `log_activity`, `get_activity_log` |
+| Category | Tools                                                                                                                                                                                                        |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Projects | `list_projects`, `create_project`, `get_project`, `update_project`, `get_or_create_project`                                                                                                                  |
+| Specs    | `create_spec`, `list_specs`, `get_spec`, `get_spec_status`, `write_artifact`, `get_artifact`, `get_artifact_template`, `approve_artifact`, `draft_artifact`, `validate_spec`, `promote_spec`, `archive_spec` |
+| Tasks    | `list_tasks`, `get_task`, `create_task`, `create_tasks_bulk`, `update_task`                                                                                                                                  |
+| Agent    | `check_in`, `check_out`, `log_activity`, `get_activity_log`                                                                                                                                                  |
 
 ## AI Agent Integration
 
@@ -135,6 +139,7 @@ args = ["mcp"]
 ```
 
 Skills and slash commands install locations:
+
 - Codex: `.codex/skills/` (project) and `~/.codex/prompts/` (global)
 - Claude Code: `.claude/skills/` and `.claude/commands/df/`
 
@@ -175,6 +180,7 @@ bun install -g @sureshdsk/devflow-mcp
 ```
 
 Rebuild rules:
+
 - MCP server changes: no web rebuild needed (`devflow mcp` runs `src/mcp/server.ts` via Bun)
 - Web UI changes: run `bun run build` before testing via `devflow dev`
 - During active UI development, use `bun dev` for hot reload

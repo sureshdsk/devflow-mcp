@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @layer base {
   :root {
@@ -103,7 +103,7 @@
   }
 
   /* GFM task list checkboxes */
-  .markdown-preview input[type="checkbox"] {
+  .markdown-preview input[type='checkbox'] {
     @apply mr-2 accent-black;
   }
 }
