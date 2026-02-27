@@ -10,7 +10,7 @@ const {
 
 const MANAGED_BEGIN = '<!-- DEVFLOW:BEGIN ';
 const MANAGED_END = '<!-- DEVFLOW:END ';
-const COMMAND_SET = ['new', 'continue', 'status', 'validate', 'promote', 'apply', 'archive'];
+const COMMAND_SET = ['new', 'continue', 'status', 'promote', 'develop', 'archive'];
 
 function resolveToolDirs(projectRoot, tool) {
   return getToolAdapter(tool).resolveTargets(projectRoot);
@@ -21,176 +21,252 @@ function managedBlock(markerId, body) {
 }
 
 function renderSkill(tool, command, markerId) {
-  if (command === 'apply') {
-    const agentName = tool === 'codex' ? 'Codex' : 'Claude Code';
+  const agentName = tool === 'codex' ? 'Codex' : 'Claude Code';
+
+  if (command === 'develop') {
     const body = [
-      `# Skill: /df:apply`,
+      `# Skill: /df:develop`,
       '',
-      `Use this skill to implement promoted tasks from the Kanban board one by one in ${agentName}.`,
+      `Use this skill to implement promoted Kanban tasks for a spec one at a time in ${agentName}.`,
       '',
-      'Required inputs (ask the user before calling any MCP tool):',
-      '- Spec name — which spec\'s tasks to implement (e.g. `add-oauth`)',
-      '- Project ID — the project the tasks belong to (run list_projects if unsure)',
+      '## Steps (in order)',
       '',
-      '## Workflow',
-      '',
-      '1. Call `list_tasks` filtered by `specName` and status `todo` or `backlog`.',
-      '2. Present the task list to the user and confirm before starting.',
-      '3. For each task, in order:',
-      '   a. Call `check_in` with the task ID — marks it `in_progress`.',
-      '   b. Read the task\'s `title`, `description`, `context`, and `executionPlan` fields.',
-      '   c. Implement the task (write code, update files, run tests as needed).',
-      '   d. Fill in the **Task Summary** section of that task card in `tasks.md` (completed, what was done, files changed, issues, follow-ups).',
-      '   e. Call `check_out` with the task ID and a short summary of what was done — marks it `done`.',
-      '   f. **Stop and report to the user before picking up the next task.**',
-      '      - Show: task title, what was done, files changed.',
-      '      - Wait for explicit "continue" or "next" before proceeding.',
-      '4. After all tasks are done, call `get_spec_status` to confirm the spec is complete.',
+      '1. Get spec name from the user if not provided.',
+      '2. Call `list_tasks` filtered by `specName`. Show the task list (title, status, priority).',
+      '   Confirm with the user before starting.',
+      '3. For each todo/backlog task in order:',
+      '   a. Call `check_in` with taskId and agentName — marks it `in_progress`.',
+      '   b. Read title, description, body (contains executionPlan) from the task.',
+      '   c. Implement the task. Run relevant tests.',
+      '   d. Call `check_out` with taskId, agentName, and a taskSummary',
+      '      (whatWasDone, filesChanged, issuesEncountered, followUps).',
+      '   e. Stop. Report: task title, what was done, files changed.',
+      '      Wait for explicit "continue" or "next" before the next task.',
+      '4. After all tasks done, call `get_spec_status` to confirm development is complete.',
       '',
       '## Rules',
-      '- Never check in to more than one task at a time.',
-      '- If a task is blocked or unclear, call `log_activity` with the blocker details and pause for human input.',
-      '- Do not skip tasks or reorder them without asking the user.',
-      '- If implementation fails, keep the task `in_progress` and report the error — do not check out.',
+      '- Never check_in to more than one task at a time.',
+      '- If blocked, call `log_activity` with details and pause for human input.',
+      '- On failure, keep the task `in_progress` and report — do not check_out.',
     ].join('\n');
     return managedBlock(markerId, body);
   }
 
-  const descriptions = {
-    new: 'Creates a new spec folder and writes the proposal artifact for human review.',
-    continue: 'Continues the active spec by writing the next unblocked artifact and stopping for human review.',
-    status: 'Shows the DAG status for a spec: what is approved, what is next, what is blocked.',
-    validate: 'Runs validation checks on spec completeness and quality, returning findings with codes and severity.',
-    promote: 'Promotes a fully approved spec to Kanban tasks in the database. All four artifacts must be approved first.',
-    archive: 'Archives a completed spec by moving its folder to devflow/specs/archive/.',
-  };
-  const inputs = {
+  const bodies = {
     new: [
+      `# Skill: /df:new`,
       '',
-      'Required inputs (resolve in this order before calling any MCP tool):',
-      '1. Project: run list_projects to find existing projects.',
-      '   - If projects exist, use the most appropriate one or ask the user.',
-      '   - If none exist, use get_or_create_project with the repo/directory name',
-      '     as the default project name (slugified), or ask the user to confirm.',
-      '   A project MUST be resolved before create_spec is called.',
-      '2. Spec name: short kebab-case identifier (e.g. "add-oauth", "fix-login-bug")',
-      '3. Title: human-readable title for the spec',
-      'If not provided in the command, ask for them now before proceeding.',
+      `Use this skill to start a new spec from scratch in ${agentName}.`,
+      '',
+      '## Steps (in order)',
+      '',
+      '1. Resolve project: call `list_projects`. Pick the most relevant project or',
+      '   call `get_or_create_project` using the repo/directory name as default.',
+      '   A projectId is required before `create_spec`.',
+      '2. Get spec name (kebab-case, e.g. "add-oauth") and title from the user',
+      '   if not already provided.',
+      '3. Call `create_spec` with name, title, projectId.',
+      '4. Call `get_artifact_template` for "proposal", then `write_artifact` with a',
+      '   complete, well-structured proposal. No placeholder text.',
+      '5. Stop. Tell the user: "Review and approve the proposal in the DevFlow UI',
+      '   at /specs/<name> or via `approve_artifact`, then run /df:continue."',
+      '',
+      'Review gate: Never write the next artifact until `get_spec_status` shows the',
+      'current one is "done".',
     ],
     continue: [
+      `# Skill: /df:continue`,
       '',
-      'Required inputs (ask the user before calling any MCP tool):',
-      '- Spec name: which spec to continue (run list_specs if unsure)',
-      'If not provided in the command, ask for it now before proceeding.',
+      `Use this skill to write the next unblocked artifact in the spec DAG in ${agentName}.`,
+      '',
+      '## Steps (in order)',
+      '',
+      '1. Get spec name from user, or call `list_specs` and pick the most recent',
+      '   in-progress spec.',
+      '2. Call `get_spec_status` to see the current state.',
+      '3. Find the first artifact that is "ready" (predecessors approved, not yet done).',
+      '   DAG order: proposal → specs → design → tasks',
+      '4. Call `get_artifact_template` for that artifact type, then `write_artifact`',
+      '   with complete, non-placeholder content.',
+      '   - For "tasks": every task must use the `## Task: <title>` heading format.',
+      '   - After writing, call `validate_spec` and fix any ERROR or WARNING findings',
+      '     before stopping.',
+      '5. Stop. Tell the user which artifact was written and where to approve it',
+      '   (DevFlow UI /specs/<name> or `approve_artifact` MCP tool).',
+      '   If all artifacts are "done", tell the user to run /df:promote.',
+      '',
+      'Review gate: Never advance to the next artifact until `get_spec_status` confirms',
+      'the current one is "done".',
     ],
     status: [
+      `# Skill: /df:status`,
       '',
-      'Required inputs (ask the user before calling any MCP tool):',
-      '- Spec name: which spec to check (run list_specs if unsure)',
-      'If not provided in the command, ask for it now before proceeding.',
-    ],
-    validate: [
+      `Use this skill to show the current DAG state for a spec in ${agentName}.`,
       '',
-      'Required inputs (ask the user before calling any MCP tool):',
-      '- Spec name: which spec to validate (run list_specs if unsure)',
-      'If not provided in the command, ask for it now before proceeding.',
+      '## Steps',
+      '',
+      '1. Get spec name from user, or call `list_specs`.',
+      '2. Call `get_spec_status`.',
+      '3. Output a structured summary:',
+      '   - Each artifact: name, state (blocked/ready/in_review/done), approved by/when if done',
+      '   - Current bottleneck: which artifact needs action and what that action is',
+      '   - Suggested next command: /df:continue, /df:promote, or /df:develop',
     ],
     promote: [
+      `# Skill: /df:promote`,
       '',
-      'Required inputs (ask the user before calling any MCP tool):',
-      '- Spec name: which spec to promote',
-      'The project is read automatically from the spec\'s metadata — no need to supply a project ID.',
-      'If not provided in the command, ask for it now before proceeding.',
+      `Use this skill to promote a fully approved spec to Kanban tasks in ${agentName}.`,
+      '',
+      '## Steps',
+      '',
+      '1. Get spec name from user, or call `list_specs`.',
+      '2. Call `get_spec_status` — confirm all artifacts (proposal, specs, design, tasks)',
+      '   are "done". If any are not approved, tell the user which ones remain and stop.',
+      '3. Call `promote_spec` with the spec name.',
+      '4. Report how many tasks were created and in which project.',
     ],
     archive: [
+      `# Skill: /df:archive`,
       '',
-      'Required inputs (ask the user before calling any MCP tool):',
-      '- Spec name: which spec to archive',
-      'If not provided in the command, ask for it now before proceeding.',
+      `Use this skill to archive a completed or abandoned spec in ${agentName}.`,
+      '',
+      '## Steps',
+      '',
+      '1. Get spec name from user, or call `list_specs`.',
+      '2. Call `get_spec_status`. Warn if any tasks are still `in_progress`.',
+      '3. Confirm with the user before archiving.',
+      '4. Call `archive_spec`.',
+      '5. Report success and the archive path.',
     ],
   };
-  const body = [
-    `# Skill: /df:${command}`,
-    '',
-    `Use this skill for the \`/df:${command}\` workflow action in ${tool === 'codex' ? 'Codex' : 'Claude Code'}.`,
-    descriptions[command] || '',
-    ...(inputs[command] || []),
-    '',
-    'Mandatory review gate:',
-    '1. Enforce artifact order: proposal -> specs/design -> tasks.',
-    '2. After writing an artifact, stop and wait for human approval via the DevFlow UI or approve_artifact MCP tool.',
-    '3. Do not proceed to dependent artifacts until the current one is approved.',
-    '4. If an approved artifact is edited, treat it as draft and require re-approval before continuing.',
-  ].join('\n');
-  return managedBlock(markerId, body);
+
+  const lines = bodies[command];
+  if (!lines) return managedBlock(markerId, `# Skill: /df:${command}\n\nUnknown command.`);
+  return managedBlock(markerId, lines.join('\n'));
 }
 
 function renderCommand(tool, command, markerId) {
   const commandName = `/df:${command}`;
+  const codexHeader = tool === 'codex'
+    ? ['---', `description: DevFlow ${commandName} workflow action`, '---', '']
+    : [];
 
-  if (command === 'apply') {
-    const lines = [];
-    if (tool === 'codex') {
-      lines.push('---', `description: DevFlow ${commandName} workflow action`, '---', '');
-    }
-    lines.push(
+  const bodies = {
+    new: [
       `# ${commandName}`,
       '',
-      'Implement promoted tasks from the Kanban board one by one.',
+      'Start a new spec from scratch.',
       '',
-      '## Required inputs',
-      'Ask the user before calling any MCP tool if not already provided:',
-      '- **Spec name** — which spec\'s tasks to implement (e.g. `add-oauth`)',
-      '- **Project ID** — the project the tasks belong to',
+      '## Steps (in order)',
       '',
-      '## Workflow',
+      '1. Resolve project: call `list_projects`. Pick the most relevant project or',
+      '   call `get_or_create_project` using the repo/directory name as default.',
+      '   A projectId is required before `create_spec`.',
+      '2. Get spec name (kebab-case, e.g. "add-oauth") and title from the user',
+      '   if not already provided.',
+      '3. Call `create_spec` with name, title, projectId.',
+      '4. Call `get_artifact_template` for "proposal", then `write_artifact` with a',
+      '   complete, well-structured proposal. No placeholder text.',
+      '5. Stop. Tell the user: "Review and approve the proposal in the DevFlow UI',
+      '   at /specs/<name> or via `approve_artifact`, then run /df:continue."',
       '',
-      '1. Call `list_tasks` filtered by `specName` and status `todo` or `backlog`.',
-      '2. Present the task list to the user and confirm before starting.',
-      '3. For each task, in order:',
-      '   a. Call `check_in` with the task ID — this marks it `in_progress`.',
-      '   b. Read the task\'s `title`, `description`, `context`, and `executionPlan` fields.',
-      '   c. Implement the task (write code, update files, run tests as needed).',
-      '   d. Fill in the **Task Summary** section of that task card in `tasks.md` (completed, what was done, files changed, issues, follow-ups).',
-      '   e. Call `check_out` with the task ID and a short summary of what was done — this marks it `done`.',
-      '   f. **Stop and report to the user before picking up the next task.**',
-      '      - Show: task title, what was done, files changed.',
-      '      - Wait for explicit "continue" or "next" before proceeding.',
-      '4. After all tasks are done, call `get_spec_status` to confirm the spec is complete.',
+      'Review gate: Never write the next artifact until `get_spec_status` shows the',
+      'current one is "done".',
+    ],
+    continue: [
+      `# ${commandName}`,
+      '',
+      'Write the next unblocked artifact in the spec DAG.',
+      '',
+      '## Steps (in order)',
+      '',
+      '1. Get spec name from user, or call `list_specs` and pick the most recent',
+      '   in-progress spec.',
+      '2. Call `get_spec_status` to see the current state.',
+      '3. Find the first artifact that is "ready" (predecessors approved, not yet done).',
+      '   DAG order: proposal → specs → design → tasks',
+      '4. Call `get_artifact_template` for that artifact type, then `write_artifact`',
+      '   with complete, non-placeholder content.',
+      '   - For "tasks": every task must use the `## Task: <title>` heading format.',
+      '   - After writing, call `validate_spec` and fix any ERROR or WARNING findings',
+      '     before stopping.',
+      '5. Stop. Tell the user which artifact was written and where to approve it',
+      '   (DevFlow UI /specs/<name> or `approve_artifact` MCP tool).',
+      '   If all artifacts are "done", tell the user to run /df:promote.',
+      '',
+      'Review gate: Never advance to the next artifact until `get_spec_status` confirms',
+      'the current one is "done".',
+    ],
+    status: [
+      `# ${commandName}`,
+      '',
+      'Show the current DAG state for a spec.',
+      '',
+      '## Steps',
+      '',
+      '1. Get spec name from user, or call `list_specs`.',
+      '2. Call `get_spec_status`.',
+      '3. Output a structured summary:',
+      '   - Each artifact: name, state (blocked/ready/in_review/done), approved by/when if done',
+      '   - Current bottleneck: which artifact needs action and what that action is',
+      '   - Suggested next command: /df:continue, /df:promote, or /df:develop',
+    ],
+    promote: [
+      `# ${commandName}`,
+      '',
+      'Promote a fully approved spec to Kanban tasks.',
+      '',
+      '## Steps',
+      '',
+      '1. Get spec name from user, or call `list_specs`.',
+      '2. Call `get_spec_status` — confirm all artifacts (proposal, specs, design, tasks)',
+      '   are "done". If any are not approved, tell the user which ones remain and stop.',
+      '3. Call `promote_spec` with the spec name.',
+      '4. Report how many tasks were created and in which project.',
+    ],
+    develop: [
+      `# ${commandName}`,
+      '',
+      'Implement promoted Kanban tasks for a spec one at a time.',
+      '',
+      '## Steps (in order)',
+      '',
+      '1. Get spec name from the user if not provided.',
+      '2. Call `list_tasks` filtered by `specName`. Show the task list (title, status, priority).',
+      '   Confirm with the user before starting.',
+      '3. For each todo/backlog task in order:',
+      '   a. Call `check_in` with taskId and agentName — marks it `in_progress`.',
+      '   b. Read title, description, body (contains executionPlan) from the task.',
+      '   c. Implement the task. Run relevant tests.',
+      '   d. Call `check_out` with taskId, agentName, and a taskSummary',
+      '      (whatWasDone, filesChanged, issuesEncountered, followUps).',
+      '   e. Stop. Report: task title, what was done, files changed.',
+      '      Wait for explicit "continue" or "next" before the next task.',
+      '4. After all tasks done, call `get_spec_status` to confirm development is complete.',
       '',
       '## Rules',
-      '- Never check in to more than one task at a time.',
-      '- If a task is blocked or unclear, call `log_activity` with the blocker details and pause for human input.',
-      '- Do not skip tasks or reorder them without asking the user.',
-      '- If implementation fails, keep the task `in_progress` and report the error — do not check out.',
-    );
-    return managedBlock(markerId, lines.join('\n'));
-  }
-
-  const descriptions = {
-    new: 'Creates a new spec folder and writes the proposal artifact for human review.\n\nRequired inputs (resolve in this order before calling any MCP tool):\n1. Project: run list_projects to find existing projects.\n   - If projects exist, use the most appropriate one or ask the user.\n   - If none exist, use get_or_create_project with the repo/directory name as the default.\n   A project MUST be resolved before create_spec is called.\n2. Spec name (kebab-case)\n3. Title',
-    continue: 'Continues the active spec by writing the next unblocked artifact and stopping for human review.\n\nAsk the user for the spec name before calling any MCP tool. Run list_specs if unsure.',
-    status: 'Shows the DAG status for a spec.\n\nAsk the user for the spec name before calling any MCP tool. Run list_specs if unsure.',
-    validate: 'Runs validation checks on spec completeness and quality.\n\nAsk the user for the spec name before calling any MCP tool. Run list_specs if unsure.',
-    promote: 'Promotes a fully approved spec to Kanban tasks in the database.\n\nAsk the user for the spec name before calling any MCP tool. The project is read automatically from the spec\'s metadata — no project ID needed.',
-    archive: 'Archives a completed spec by moving its folder to devflow/specs/archive/.\n\nAsk the user for the spec name before calling any MCP tool. Run list_specs if unsure.',
+      '- Never check_in to more than one task at a time.',
+      '- If blocked, call `log_activity` with details and pause for human input.',
+      '- On failure, keep the task `in_progress` and report — do not check_out.',
+    ],
+    archive: [
+      `# ${commandName}`,
+      '',
+      'Archive a completed or abandoned spec.',
+      '',
+      '## Steps',
+      '',
+      '1. Get spec name from user, or call `list_specs`.',
+      '2. Call `get_spec_status`. Warn if any tasks are still `in_progress`.',
+      '3. Confirm with the user before archiving.',
+      '4. Call `archive_spec`.',
+      '5. Report success and the archive path.',
+    ],
   };
-  const lines = [];
-  if (tool === 'codex') {
-    lines.push('---', `description: DevFlow ${commandName} workflow action`, '---', '');
-  }
-  lines.push(
-    `# ${commandName}`,
-    '',
-    `Run the DevFlow "${command}" workflow action.`,
-    descriptions[command] || '',
-    '',
-    'Mandatory review gate:',
-    '- Enforce proposal -> specs/design -> tasks ordering.',
-    '- Pause for human review after each artifact write.',
-    '- Continue only after explicit approve_artifact for the current phase.',
-  );
-  return managedBlock(markerId, lines.join('\n'));
+
+  const bodyLines = bodies[command];
+  if (!bodyLines) return managedBlock(markerId, `# ${commandName}\n\nUnknown command.`);
+  return managedBlock(markerId, [...codexHeader, ...bodyLines].join('\n'));
 }
 
 function replaceManagedSection(existing, markerId, nextContent) {

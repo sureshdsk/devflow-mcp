@@ -1,16 +1,24 @@
 <!-- DEVFLOW:BEGIN codex:skill:df-continue -->
 # Skill: /df:continue
 
-Use this skill for the `/df:continue` workflow action in Codex.
-Continues the active spec by writing the next unblocked artifact and stopping for human review.
+Use this skill to write the next unblocked artifact in the spec DAG in Codex.
 
-Required inputs (ask the user before calling any MCP tool):
-- Spec name: which spec to continue (run list_specs if unsure)
-If not provided in the command, ask for it now before proceeding.
+## Steps (in order)
 
-Mandatory review gate:
-1. Enforce artifact order: proposal -> specs/design -> tasks.
-2. After writing an artifact, stop and wait for human approval via the DevFlow UI or approve_artifact MCP tool.
-3. Do not proceed to dependent artifacts until the current one is approved.
-4. If an approved artifact is edited, treat it as draft and require re-approval before continuing.
+1. Get spec name from user, or call `list_specs` and pick the most recent
+   in-progress spec.
+2. Call `get_spec_status` to see the current state.
+3. Find the first artifact that is "ready" (predecessors approved, not yet done).
+   DAG order: proposal → specs → design → tasks
+4. Call `get_artifact_template` for that artifact type, then `write_artifact`
+   with complete, non-placeholder content.
+   - For "tasks": every task must use the `## Task: <title>` heading format.
+   - After writing, call `validate_spec` and fix any ERROR or WARNING findings
+     before stopping.
+5. Stop. Tell the user which artifact was written and where to approve it
+   (DevFlow UI /specs/<name> or `approve_artifact` MCP tool).
+   If all artifacts are "done", tell the user to run /df:promote.
+
+Review gate: Never advance to the next artifact until `get_spec_status` confirms
+the current one is "done".
 <!-- DEVFLOW:END codex:skill:df-continue -->

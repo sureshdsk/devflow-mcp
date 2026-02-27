@@ -1,17 +1,13 @@
 <!-- DEVFLOW:BEGIN codex:skill:df-promote -->
 # Skill: /df:promote
 
-Use this skill for the `/df:promote` workflow action in Codex.
-Promotes a fully approved spec to Kanban tasks in the database. All four artifacts must be approved first.
+Use this skill to promote a fully approved spec to Kanban tasks in Codex.
 
-Required inputs (ask the user before calling any MCP tool):
-- Spec name: which spec to promote
-The project is read automatically from the spec's metadata — no need to supply a project ID.
-If not provided in the command, ask for it now before proceeding.
+## Steps
 
-Mandatory review gate:
-1. Enforce artifact order: proposal -> specs/design -> tasks.
-2. After writing an artifact, stop and wait for human approval via the DevFlow UI or approve_artifact MCP tool.
-3. Do not proceed to dependent artifacts until the current one is approved.
-4. If an approved artifact is edited, treat it as draft and require re-approval before continuing.
+1. Get spec name from user, or call `list_specs`.
+2. Call `get_spec_status` — confirm all artifacts (proposal, specs, design, tasks)
+   are "done". If any are not approved, tell the user which ones remain and stop.
+3. Call `promote_spec` with the spec name.
+4. Report how many tasks were created and in which project.
 <!-- DEVFLOW:END codex:skill:df-promote -->

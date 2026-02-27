@@ -1,16 +1,13 @@
 <!-- DEVFLOW:BEGIN codex:skill:df-archive -->
 # Skill: /df:archive
 
-Use this skill for the `/df:archive` workflow action in Codex.
-Archives a completed spec by moving its folder to devflow/specs/archive/.
+Use this skill to archive a completed or abandoned spec in Codex.
 
-Required inputs (ask the user before calling any MCP tool):
-- Spec name: which spec to archive
-If not provided in the command, ask for it now before proceeding.
+## Steps
 
-Mandatory review gate:
-1. Enforce artifact order: proposal -> specs/design -> tasks.
-2. After writing an artifact, stop and wait for human approval via the DevFlow UI or approve_artifact MCP tool.
-3. Do not proceed to dependent artifacts until the current one is approved.
-4. If an approved artifact is edited, treat it as draft and require re-approval before continuing.
+1. Get spec name from user, or call `list_specs`.
+2. Call `get_spec_status`. Warn if any tasks are still `in_progress`.
+3. Confirm with the user before archiving.
+4. Call `archive_spec`.
+5. Report success and the archive path.
 <!-- DEVFLOW:END codex:skill:df-archive -->

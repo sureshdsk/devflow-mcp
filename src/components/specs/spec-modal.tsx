@@ -71,7 +71,7 @@ function DevelopmentPanel({ tasks, status }: { tasks: PromotedTask[]; status: Ar
     return (
       <div className="p-6 bg-gray-100 border-4 border-gray-300 text-center">
         <p className="font-bold text-gray-600 uppercase">Blocked — approve and promote tasks first</p>
-        <p className="text-sm text-gray-500 mt-1">Approve all artifacts, then click "Promote to Tasks"</p>
+        <p className="text-sm text-gray-500 mt-1">Approve all artifacts, then click &ldquo;Promote to Tasks&rdquo;</p>
       </div>
     );
   }

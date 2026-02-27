@@ -60,7 +60,7 @@ export default function SpecPage({ params }: { params: Promise<{ name: string }>
     function connect() {
       if (isUnmounted) return;
       try {
-        ws = new WebSocket("ws://localhost:3001");
+        ws = new WebSocket(`ws://localhost:${process.env.NEXT_PUBLIC_DEVFLOW_WS_PORT || "3001"}`);
         ws.onmessage = (event) => {
           const data = JSON.parse(event.data);
           if (data.specName === name && (

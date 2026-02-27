@@ -178,7 +178,7 @@ function DevelopmentPanel({
           Blocked — approve and promote tasks first
         </p>
         <p className="text-sm text-gray-500 mt-1">
-          Approve all artifacts, then click "Promote to Tasks"
+          Approve all artifacts, then click &ldquo;Promote to Tasks&rdquo;
         </p>
       </div>
     );

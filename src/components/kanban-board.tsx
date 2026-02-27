@@ -88,7 +88,7 @@ export function KanbanBoard() {
       if (isUnmounted) return;
 
       try {
-        ws = new WebSocket("ws://localhost:3001");
+        ws = new WebSocket(`ws://localhost:${process.env.NEXT_PUBLIC_DEVFLOW_WS_PORT || "3001"}`);
 
         ws.onopen = () => {
           console.log("WebSocket connected");

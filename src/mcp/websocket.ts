@@ -133,5 +133,7 @@ export function disconnect() {
   }
 }
 
-// Attempt initial connection when module is imported
-connectToServer();
+// Connect lazily — skip during build
+if (process.env.NEXT_PHASE !== "phase-production-build") {
+  connectToServer();
+}

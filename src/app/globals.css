@@ -97,4 +97,13 @@
   .markdown-preview em {
     @apply italic;
   }
+
+  .markdown-preview table tbody tr:nth-child(even) {
+    @apply bg-gray-50;
+  }
+
+  /* GFM task list checkboxes */
+  .markdown-preview input[type="checkbox"] {
+    @apply mr-2 accent-black;
+  }
 }

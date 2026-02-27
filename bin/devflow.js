@@ -77,12 +77,22 @@ Examples:
   case 'dev': {
     console.log('Starting DevFlow web UI...');
     const pkgDir = path.join(__dirname, '..');
-    const nextBin = path.join(pkgDir, 'node_modules', '.bin', 'next');
-    const devProcess = spawn(nextBin, ['start'], {
-      stdio: 'inherit',
-      cwd: pkgDir
-    });
-    devProcess.on('exit', (code) => process.exit(code));
+    const standaloneServer = path.join(pkgDir, '.next', 'standalone', 'server.js');
+    if (fs.existsSync(standaloneServer)) {
+      const devProcess = spawn('node', [standaloneServer], {
+        stdio: 'inherit',
+        cwd: pkgDir,
+        env: { ...process.env, PORT: process.env.DEVFLOW_PORT || process.env.PORT || '3000' }
+      });
+      devProcess.on('exit', (code) => process.exit(code));
+    } else {
+      const nextBin = path.join(pkgDir, 'node_modules', '.bin', 'next');
+      const devProcess = spawn(nextBin, ['start'], {
+        stdio: 'inherit',
+        cwd: pkgDir
+      });
+      devProcess.on('exit', (code) => process.exit(code));
+    }
     break;
   }
 
@@ -131,6 +141,7 @@ Requirements:
   - MCP Server: Bun 1.0+ (required for AI agent integration)
 
 Environment Variables:
+  DEVFLOW_PORT      Web UI port (default: 3000)
   DEVFLOW_WS_PORT   WebSocket server port (default: 3001)
   CODEX_HOME        Override Codex home directory (default: ~/.codex)
 
