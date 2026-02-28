@@ -1,8 +1,5 @@
-'use client';
-
-import { use } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { SpecDetail } from '@/components/specs/spec-detail';
-import Link from 'next/link';
 import { useSpec, useInvalidate } from '@/hooks/use-queries';
 import { useWebSocket } from '@/hooks/use-websocket';
 
@@ -29,16 +26,16 @@ interface SpecData {
   }>;
 }
 
-export default function SpecPage({ params }: { params: Promise<{ name: string }> }) {
-  const { name } = use(params);
-  const { data, isLoading, error } = useSpec(name);
+export default function SpecPage() {
+  const { name } = useParams<{ name: string }>();
+  const { data, isLoading, error } = useSpec(name!);
   const { invalidateSpec, invalidateSpecs } = useInvalidate();
   useWebSocket();
 
   const spec = data as SpecData | undefined;
 
   function handleRefresh() {
-    invalidateSpec(name);
+    invalidateSpec(name!);
     invalidateSpecs();
   }
 
@@ -46,14 +43,14 @@ export default function SpecPage({ params }: { params: Promise<{ name: string }>
     <div className="min-h-screen bg-[--color-bg]">
       <header className="border-b-4 border-black bg-white">
         <div className="container mx-auto px-6 py-4 flex items-center gap-6">
-          <Link href="/" className="text-3xl font-black uppercase tracking-tight hover:underline">
+          <Link to="/" className="text-3xl font-black uppercase tracking-tight hover:underline">
             DevFlow
           </Link>
           <nav className="flex gap-4">
-            <Link href="/" className="font-bold uppercase text-sm hover:underline">
+            <Link to="/" className="font-bold uppercase text-sm hover:underline">
               Board
             </Link>
-            <Link href="/specs" className="font-bold uppercase text-sm hover:underline">
+            <Link to="/specs" className="font-bold uppercase text-sm hover:underline">
               Specs
             </Link>
           </nav>
@@ -64,7 +61,7 @@ export default function SpecPage({ params }: { params: Promise<{ name: string }>
         {error ? (
           <div className="p-6 bg-red-100 border-4 border-red-500">
             <p className="font-bold text-red-800">Failed to load spec</p>
-            <Link href="/specs" className="text-sm underline mt-2 block">
+            <Link to="/specs" className="text-sm underline mt-2 block">
               Back to Specs
             </Link>
           </div>

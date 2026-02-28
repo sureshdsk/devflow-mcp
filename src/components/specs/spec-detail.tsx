@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { ArtifactDagStatus } from './artifact-dag-status';
 import { ArtifactEditor } from './artifact-editor';

@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { X, FileText, ChevronRight, CheckCircle2, Circle, Clock, Lock } from 'lucide-react';
 import { ArtifactEditor } from './artifact-editor';

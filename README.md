@@ -17,7 +17,6 @@ Agents use MCP tools to write artifacts, check in/out of tasks, and keep executi
 ## Requirements
 
 - Node.js 20+
-- Bun 1.0+ (required for MCP server: `devflow mcp`)
 
 ## Install
 
@@ -337,7 +336,7 @@ devflow init --schema my-workflow
                                 │ MCP protocol (stdio)
                                 ▼
 ┌───────────────────────────────────────────────────────────────────────┐
-│                  MCP Server (Bun, src/mcp/server.ts)                 │
+│                  MCP Server (tsx, src/mcp/server.ts)                  │
 │  project/spec/task/agent tools                                       │
 │  DB + spec mutations -> broadcastUpdate()                            │
 └───────────────┬──────────────────────────────┬────────────────────────┘
@@ -360,16 +359,15 @@ devflow init --schema my-workflow
                 │ - project/spec/artifact/activity mutations
                 ▼
 ┌───────────────────────────────────────────────────────────────────────┐
-│                 WebSocket Server (src/mcp/websocket.ts)              │
+│                 WebSocket Server (src/websocket/server.ts)            │
 │                              port 3001                               │
 └───────────────────────────────┬───────────────────────────────────────┘
                                 │ real-time updates
                                 ▼
 ┌───────────────────────────────────────────────────────────────────────┐
-│                 Web UI (Next.js, localhost:3000)                     │
+│              Web UI (Hono + Vite SPA, localhost:3000)                 │
 │  /            -> Kanban board                                        │
-│  /specs       -> Spec list                                           │
-│  /specs/[name] -> Artifact editor + approve/promote                  │
+│  /specs/:name -> Artifact editor + approve/promote                   │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -378,17 +376,16 @@ devflow init --schema my-workflow
 ```bash
 git clone https://github.com/sureshdsk/devflow-mcp.git
 cd devflow-mcp
-npm install
-npm run dev        # UI dev server
-npm run mcp        # MCP server
-npm run typecheck
-npm run lint
+pnpm install
+pnpm dev           # Starts Hono API server + Vite dev server concurrently
+pnpm typecheck
+pnpm lint
 ```
 
 ## Local Package Testing
 
 ```bash
-npm run build
+pnpm build
 npm install -g .
 devflow --help
 ```

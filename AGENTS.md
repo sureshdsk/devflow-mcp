@@ -10,19 +10,31 @@ DevFlow MCP is a spec-driven Kanban system for AI agents. Agents write planning 
 
 ```bash
 # Development
-bun install          # Install dependencies
-bun dev              # Start web UI (localhost:3000)
-bun run mcp          # Start MCP server (requires Bun)
+pnpm install         # Install dependencies
+pnpm dev             # Start Hono API server + Vite dev server (localhost:3000)
+pnpm dev:server      # Start Hono API server only
+pnpm dev:client      # Start Vite dev server only
+pnpm mcp             # Start MCP server
 
 # Quality checks
-bun typecheck        # TypeScript type checking
-bun lint             # ESLint
+pnpm typecheck       # TypeScript type checking
+pnpm lint            # ESLint
+
+# Build
+pnpm build           # Build client (Vite) + server (tsup)
+pnpm build:client    # Vite → dist/public/
+pnpm build:server    # tsup → dist/server/
+pnpm start           # Run production server (node dist/server/start.js)
 
 # Database
-bun run db:generate  # Generate migrations from schema changes
-bun run db:push      # Push schema to database
-bun run db:studio    # Open Drizzle Studio for DB inspection
-bun run db:init      # Initialize database (run after fresh clone)
+pnpm db:generate     # Generate migrations from schema changes
+pnpm db:push         # Push schema to database
+pnpm db:init         # Initialize database (run after fresh clone)
+
+# Release
+pnpm release:patch   # Bump patch version, commit, tag, push
+pnpm release:minor   # Bump minor version, commit, tag, push
+pnpm release:major   # Bump major version, commit, tag, push
 
 # CLI (when installed globally)
 devflow init         # Initialize DB + install skills/commands
@@ -35,14 +47,17 @@ devflow mcp          # Start MCP server
 ```
 AI Agents (Codex/Claude/Cursor)
   -> MCP protocol (stdio)
-MCP Server (Bun, src/mcp/server.ts)
+MCP Server (tsx, src/mcp/server.ts)
   -> Spec artifacts on disk (./devflow/specs/*)
   -> SQLite/libSQL DB (~/.devflow/devflow.db)
-  -> WebSocket broadcast server (src/mcp/websocket.ts, :3001)
-Web UI (Next.js, src/app)
+  -> WebSocket broadcast server (src/websocket/server.ts, :3001)
+Hono API Server (src/server/)
+  -> API routes (src/server/routes/)
+  -> Static file serving (dist/public/)
+  -> SPA fallback
+Web UI (Vite SPA, src/main.tsx)
   -> Kanban board (/)
-  -> Specs list (/specs)
-  -> Spec editor + approval (/specs/[name])
+  -> Spec editor + approval (/specs/:name)
 ```
 
 ## Core Components
@@ -53,21 +68,26 @@ Web UI (Next.js, src/app)
 - Project/spec/task/agent tools
 - Uses `src/db/index.ts` with `@libsql/client`
 
-2. Web UI (`src/app/`)
+2. Hono API server (`src/server/`)
 
-- Next.js App Router, React 19
+- `src/server/start.ts` — entry point, starts HTTP + WebSocket servers
+- `src/server/index.ts` — Hono app with route mounting + static serving
+- `src/server/routes/` — API route handlers (tasks, projects, specs, agents)
+
+3. Web UI (`src/main.tsx`, `src/pages/`, `src/components/`)
+
+- Vite SPA with React 19 + react-router-dom
 - `/` Kanban board (drag/drop)
-- `/specs` read-only spec list
-- `/specs/[name]` artifact editor + approve/promote flow
+- `/specs/:name` artifact editor + approve/promote flow
 - Real-time updates via WebSocket (`localhost:3001`)
 
-3. Specs on disk (`./devflow/specs/`)
+4. Specs on disk (`./devflow/specs/`)
 
 - Source of truth for planning artifacts
 - Per-spec files: `proposal.md`, `specs.md`, `design.md`, `tasks.md`, `.approvals.json`, `.meta.json`
 - Approval state stores SHA256 content hash; editing approved artifacts auto-revokes approval
 
-4. Database (`~/.devflow/devflow.db`)
+5. Database (`~/.devflow/devflow.db`)
 
 - libSQL/SQLite + WAL mode
 - Drizzle ORM tables: `projects`, `tasks`, `agent_activity`
@@ -99,7 +119,7 @@ proposal -> (specs, design) -> tasks -> [Promote to Kanban]
 
 - Artifact states: `blocked` | `ready` | `in_review` | `done`
 - Agents write via `write_artifact`
-- Humans approve via web UI (`/specs/[name]`) or `approve_artifact`
+- Humans approve via web UI (`/specs/:name`) or `approve_artifact`
 - Editing approved artifacts revokes approval
 - `promote_spec` parses `tasks.md` (`## Task:` headings) and inserts DB tasks
 
@@ -112,12 +132,12 @@ proposal -> (specs, design) -> tasks -> [Promote to Kanban]
 
 ## Code Conventions
 
-- Use `bun` for package management and runtime commands
+- Use `pnpm` for package management
 - TypeScript strict mode; avoid `any`
 - Path alias: `@/*` -> `src/*`
 - Tailwind CSS 4 with neubrutalism visual style
 - Conventional commit prefixes: `feat:`, `fix:`, `docs:`, etc.
-- Next.js local TypeScript imports: do not add `.js` extensions
+- Do not add `.js` extensions to TypeScript imports
 
 ## MCP Tool Categories
 
@@ -163,11 +183,11 @@ Available slash commands: `/df:new`, `/df:continue`, `/df:status`, `/df:validate
 To test the package locally as if installed globally:
 
 ```bash
-# 1. Build web UI assets
-bun run build
+# 1. Build
+pnpm build
 
-# 2. Install globally from local path (preferred over bun link)
-bun install -g .
+# 2. Install globally from local path
+npm install -g .
 
 # Verify
 devflow --help
@@ -176,22 +196,22 @@ devflow --help
 Restore published package:
 
 ```bash
-bun install -g @sureshdsk/devflow-mcp
+npm install -g @sureshdsk/devflow-mcp
 ```
 
 Rebuild rules:
 
-- MCP server changes: no web rebuild needed (`devflow mcp` runs `src/mcp/server.ts` via Bun)
-- Web UI changes: run `bun run build` before testing via `devflow dev`
-- During active UI development, use `bun dev` for hot reload
+- MCP server changes: no web rebuild needed (`devflow mcp` runs `src/mcp/server.ts` via tsx)
+- Web UI changes: run `pnpm build` before testing via `devflow dev`
+- During active UI development, use `pnpm dev` for hot reload (Vite + Hono concurrently)
 
 ## Database Migrations
 
 ```bash
 # After modifying src/db/schema.ts:
-bun run db:generate
-bun run db:push
+pnpm db:generate
+pnpm db:push
 
 # Test from clean DB:
-rm ~/.devflow/devflow.db && bun run db:init
+rm ~/.devflow/devflow.db && pnpm db:init
 ```

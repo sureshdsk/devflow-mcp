@@ -21,6 +21,9 @@ Use this skill to implement promoted Kanban tasks for a spec one at a time in Co
 
 ## Rules
 
+- **Before starting any development**, call `get_spec_status` for the spec. If any artifact
+  (proposal, specs, design, tasks) is not approved, tell the user which ones remain
+  unapproved and stop. All artifacts must be approved before proceeding.
 - Never check_in to more than one task at a time.
 - If blocked, call `log_activity` with details and pause for human input.
 - On failure, keep the task `in_progress` and report — do not check_out.

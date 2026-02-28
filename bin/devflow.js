@@ -1,18 +1,8 @@
 #!/usr/bin/env node
 
-const { spawn, execSync } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-
-// Detect if Bun is available
-function hasBun() {
-  try {
-    execSync('bun --version', { stdio: 'ignore' });
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
 
 const command = process.argv[2];
 const subcommand = process.argv[3];
@@ -83,19 +73,22 @@ Examples:
   case 'dev': {
     console.log('Starting DevFlow web UI...');
     const pkgDir = path.join(__dirname, '..');
-    const standaloneServer = path.join(pkgDir, '.next', 'standalone', 'server.js');
-    if (fs.existsSync(standaloneServer)) {
-      const devProcess = spawn('node', [standaloneServer], {
+    const serverEntry = path.join(pkgDir, 'dist', 'server', 'start.js');
+    if (fs.existsSync(serverEntry)) {
+      const devProcess = spawn('node', [serverEntry], {
         stdio: 'inherit',
         cwd: pkgDir,
         env: { ...process.env, PORT: process.env.DEVFLOW_PORT || process.env.PORT || '3000' },
       });
       devProcess.on('exit', (code) => process.exit(code));
     } else {
-      const nextBin = path.join(pkgDir, 'node_modules', '.bin', 'next');
-      const devProcess = spawn(nextBin, ['start'], {
+      // Fallback: run with tsx in development
+      const tsxBin = path.join(pkgDir, 'node_modules', '.bin', 'tsx');
+      const srcEntry = path.join(pkgDir, 'src', 'server', 'start.ts');
+      const devProcess = spawn(tsxBin, [srcEntry], {
         stdio: 'inherit',
         cwd: pkgDir,
+        env: { ...process.env, PORT: process.env.DEVFLOW_PORT || process.env.PORT || '3000' },
       });
       devProcess.on('exit', (code) => process.exit(code));
     }
@@ -103,13 +96,10 @@ Examples:
   }
 
   case 'mcp': {
-    if (!hasBun()) {
-      process.stderr.write('Error: Bun is required for the MCP server\n');
-      process.stderr.write('Please install Bun: https://bun.sh\n');
-      process.exit(1);
-    }
-    const mcpScript = path.join(__dirname, '..', 'src', 'mcp', 'server.ts');
-    const mcpProcess = spawn('bun', ['run', mcpScript], { stdio: 'inherit' });
+    const pkgDir = path.join(__dirname, '..');
+    const tsxBin = path.join(pkgDir, 'node_modules', '.bin', 'tsx');
+    const mcpScript = path.join(pkgDir, 'src', 'mcp', 'server.ts');
+    const mcpProcess = spawn(tsxBin, [mcpScript], { stdio: 'inherit' });
     mcpProcess.on('exit', (code) => process.exit(code));
     break;
   }
@@ -127,7 +117,7 @@ Usage:
   devflow tool install            Install skills and slash commands for AI tools
   devflow tool update             Update existing skills and slash commands
   devflow dev                     Start the web UI (http://localhost:3000)
-  devflow mcp                     Start the MCP server for AI agents (requires Bun)
+  devflow mcp                     Start the MCP server for AI agents
   devflow help                    Show this help message
 
 Tool install options:
@@ -143,8 +133,7 @@ Init options:
   --non-interactive               Disable prompts and use deterministic fallback
 
 Requirements:
-  - Web UI: Node.js 20+ or Bun 1.0+
-  - MCP Server: Bun 1.0+ (required for AI agent integration)
+  - Node.js 20+
 
 Environment Variables:
   DEVFLOW_PORT      Web UI port (default: 3000)

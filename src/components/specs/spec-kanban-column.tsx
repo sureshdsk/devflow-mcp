@@ -1,5 +1,3 @@
-'use client';
-
 import { CheckCircle2, Circle, Clock, Lock } from 'lucide-react';
 import { useSpecs } from '@/hooks/use-queries';
 

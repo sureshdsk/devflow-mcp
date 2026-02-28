@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -16,7 +14,7 @@ export function useWebSocket() {
 
       try {
         const ws = new WebSocket(
-          `ws://localhost:${process.env.NEXT_PUBLIC_DEVFLOW_WS_PORT || '3001'}`,
+          `ws://localhost:${import.meta.env.VITE_DEVFLOW_WS_PORT || '3001'}`,
         );
         wsRef.current = ws;
 

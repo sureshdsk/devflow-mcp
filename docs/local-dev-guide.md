@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Node.js 20+
-- Bun 1.0+ (required for the MCP server)
+- pnpm 10+
 
 ## Build & Install Locally
 
@@ -12,16 +12,16 @@
 ```bash
 git clone https://github.com/sureshdsk/devflow-mcp.git
 cd devflow-mcp
-npm install
+pnpm install
 ```
 
 ### 2. Build
 
 ```bash
-npm run build
+pnpm build
 ```
 
-This runs `next build` and produces the `.next/standalone` output.
+This runs Vite (client → `dist/public/`) and tsup (server → `dist/server/`).
 
 ### 3. Install globally (link)
 
@@ -42,10 +42,10 @@ devflow mcp           # Start the MCP server
 ### Development mode (hot reload)
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
-Starts Next.js dev server with hot reload on port 3000.
+Starts the Hono API server and Vite dev server concurrently. Vite proxies `/api` requests to the Hono server.
 
 ### Custom ports
 
