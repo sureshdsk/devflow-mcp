@@ -1,6 +1,6 @@
 {
   "name": "@sureshdsk/devflow-mcp",
-  "version": "3.0.2",
+  "version": "3.1.0",
   "description": "Context-First Kanban for AI Agents - MCP server with web UI for managing AI agent workflows",
   "author": "DevFlow Team",
   "license": "MIT",
