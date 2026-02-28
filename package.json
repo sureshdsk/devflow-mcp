@@ -29,7 +29,6 @@
     "drizzle",
     "scripts",
     ".next/standalone",
-    ".next/static",
     "next.config.ts",
     "tsconfig.json",
     "drizzle.config.ts",
@@ -49,7 +48,8 @@
     "db:push": "drizzle-kit push",
     "db:init": "node scripts/init-db.js",
     "mcp": "bun src/mcp/server.ts",
-    "prepublishOnly": "npm run typecheck && npm run lint && npm run build",
+    "postbuild": "cp -r .next/static .next/standalone/.next/static",
+    "prepublishOnly": "npm run typecheck && npm run lint && npm run build && npm run postbuild",
     "postinstall": "node scripts/postinstall.js",
     "prepare": "husky"
   },
