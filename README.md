@@ -2,7 +2,7 @@
 
 **Spec-Driven Kanban for AI Agents**
 
-[![npm version](https://badge.fury.io/js/devflow-mcp.svg)](https://www.npmjs.com/package/@sureshdsk/devflow-mcp)
+[![npm version](https://img.shields.io/npm/v/@sureshdsk/devflow-mcp)](https://www.npmjs.com/package/@sureshdsk/devflow-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 DevFlow lets humans and AI agents collaborate through a spec-first workflow:
@@ -409,6 +409,12 @@ Inspired by:
 
 - [OpenSpec](https://github.com/Fission-AI/OpenSpec/) — spec-driven development workflow
 - [Spec Kit](https://github.github.com/spec-kit/) — structured specification tooling
+
+## Contributors
+
+<a href="https://github.com/sureshdsk/devflow-mcp/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=sureshdsk/devflow-mcp" />
+</a>
 
 ## License
 
