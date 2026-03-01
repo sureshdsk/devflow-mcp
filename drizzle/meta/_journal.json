@@ -15,6 +15,20 @@
       "when": 1771834907179,
       "tag": "0001_mixed_genesis",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1771835000000,
+      "tag": "0002_task_body_field",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1771835100000,
+      "tag": "0003_specs_table",
+      "breakpoints": true
     }
   ]
 }
