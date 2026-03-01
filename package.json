@@ -20,6 +20,8 @@
     "project-management"
   ],
   "packageManager": "pnpm@10.14.0",
+  "type": "commonjs",
+  "main": "./dist/server/start.js",
   "bin": {
     "devflow": "./bin/devflow.js",
     "devflow-mcp": "./bin/devflow.js"
