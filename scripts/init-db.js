@@ -126,6 +126,17 @@ async function runMigrationsAndSeed(client, db) {
   }
   console.log('✓ Migrations complete');
 
+  // Verify tables actually exist before querying
+  const tableCheck = await client.execute(
+    `SELECT name FROM sqlite_master WHERE type='table' AND name='projects'`,
+  );
+  if (tableCheck.rows.length === 0) {
+    throw new Error(
+      'Migration completed but tables were not created.\n' +
+        'Try deleting ~/.devflow/devflow.db and re-running: devflow init',
+    );
+  }
+
   // Create default project if none exists
   const existingProjects = await client.execute('SELECT id FROM projects LIMIT 1');
   if (existingProjects.rows.length === 0) {
@@ -207,7 +218,7 @@ if (require.main === module) {
     console.error('\nTroubleshooting:');
     console.error('  1. Try reinstalling: npm install -g @sureshdsk/devflow-mcp');
     console.error('  2. Ensure ~/.devflow directory is writable');
-    console.error('  3. Report issues at: https://github.com/anthropics/devflow-mcp/issues');
+    console.error('  3. Report issues at: https://github.com/sureshdsk/devflow-mcp/issues');
     process.exit(1);
   });
 }
